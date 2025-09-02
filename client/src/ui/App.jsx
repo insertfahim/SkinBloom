@@ -42,6 +42,9 @@ export default function App() {
         return [
           { to: "/dashboard", label: "Dashboard" },
           { to: "/products", label: "Shop" },
+          { to: "/wishlist", label: "Wishlist" },
+          { to: "/comparison", label: "Compare" },
+          { to: "/price-tracking", label: "Price Alerts" },
           { to: "/routine", label: "Routine" },
           { to: "/timeline", label: "Progress" },
           { to: "/tickets", label: "Help" },
@@ -66,7 +69,7 @@ export default function App() {
 
           <form onSubmit={onSearch} className="search">
             <input className="input" placeholder="Search products, ingredients…" value={q} onChange={e => setQ(e.target.value)} />
-            <button className="btn">Search</button>
+            <button className="btn blue">Search</button>
           </form>
 
           <div className="nav-link-group">

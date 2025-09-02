@@ -12,6 +12,10 @@ import DermatologistDashboard from './ui/DermatologistDashboard.jsx'
 import Login from './ui/Login.jsx'
 import Register from './ui/Register.jsx'
 import Products from './ui/Products.jsx'
+import ProductDetail from './ui/ProductDetail.jsx'
+import Wishlist from './ui/Wishlist.jsx'
+import ProductComparison from './ui/ProductComparison.jsx'
+import PriceTracking from './ui/PriceTracking.jsx'
 import Profile from './ui/Profile.jsx'
 import Routine from './ui/Routine.jsx'
 import Feedback from './ui/Feedback.jsx'
@@ -43,6 +47,26 @@ root.render(
           <Route path='products' element={
             <ProtectedRoute allowedRoles={['user', 'dermatologist']}>
               <Products />
+            </ProtectedRoute>
+          } />
+          <Route path='products/:id' element={
+            <ProtectedRoute allowedRoles={['user', 'dermatologist']}>
+              <ProductDetail />
+            </ProtectedRoute>
+          } />
+          <Route path='wishlist' element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <Wishlist />
+            </ProtectedRoute>
+          } />
+          <Route path='comparison' element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <ProductComparison />
+            </ProtectedRoute>
+          } />
+          <Route path='price-tracking' element={
+            <ProtectedRoute allowedRoles={['user']}>
+              <PriceTracking />
             </ProtectedRoute>
           } />
           <Route path='profile' element={
