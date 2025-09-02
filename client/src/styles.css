@@ -107,6 +107,31 @@ p {
   transform: none;
 }
 
+.btn.blue {
+  background: #3b82f6;
+}
+
+.btn.blue:hover {
+  background: #2563eb;
+}
+
+/* Ensure btn styles override nav-link styles */
+.nav-link.btn {
+  color: white;
+  background: var(--primary-color);
+  font-weight: 600;
+  padding: 12px 20px;
+}
+
+.nav-link.btn.blue {
+  background: #3b82f6;
+}
+
+.nav-link.btn.blue:hover {
+  background: #2563eb;
+  color: white;
+}
+
 /* Form elements */
 .input, select, textarea {
   width: 100%;

@@ -92,7 +92,7 @@ export default function App() {
             ) : (
               <>
                 <NavLink to="/login" className="nav-link">Login</NavLink>
-                <NavLink to="/register" className="btn">Sign up</NavLink>
+                <NavLink to="/register" className="btn blue">Sign up</NavLink>
                 <NavLink to="/products" className="nav-link">Shop</NavLink>
               </>
             )}
