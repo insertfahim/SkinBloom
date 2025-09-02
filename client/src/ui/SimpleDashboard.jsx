@@ -9,16 +9,13 @@ export default function SimpleDashboard() {
   }
 
   return (
-    <div style={{ 
-      minHeight: 'calc(100vh - 70px)', // Full height minus header
-      width: '100%'
-    }}>
+    <div className="full-page">
       {/* Hero Section */}
       <div style={{
         background: 'linear-gradient(135deg, #f8fffe 0%, #e6fffa 50%, #b2f5ea 100%)',
         padding: '100px 20px 80px 20px',
         textAlign: 'center',
-        minHeight: '60vh', // Make hero section larger
+        minHeight: '70vh', // Make hero section larger
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
