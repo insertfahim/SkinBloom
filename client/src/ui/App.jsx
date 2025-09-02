@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [q, setQ] = useState('');
   const [cartCount, setCartCount] = useState(0);
+
+  // Check if we're on the home page
+  const isHomePage = location.pathname === '/';
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -104,7 +108,7 @@ export default function App() {
       </div>
       
       {/* Main Content */}
-      <div className="container" style={{ padding: '24px 0' }}>
+      <div className={isHomePage ? "" : "container"} style={isHomePage ? {} : { padding: '24px 0' }}>
         <Outlet />
       </div>
 
