@@ -29,14 +29,52 @@ export async function login(req,res){
     if(!user) return res.status(400).json({error:'Invalid credentials'})
     const ok = await bcrypt.compare(password, user.password)
     if(!ok) return res.status(400).json({error:'Invalid credentials'})
+    
+    // Update last login
+    user.lastLogin = new Date()
+    await user.save()
+    
     const token = jwt.sign({ id:user._id, role:user.role, name: user.name }, process.env.JWT_SECRET, { expiresIn: '7d' })
     res.json({
       token,
       user: {
         _id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     })
   }catch(e){ res.status(500).json({error:e.message}) }
+}
+
+export async function getMe(req, res) {
+  try {
+    const user = await User.findById(req.user.id).select('-password')
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    res.json(user)
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+}
+
+export async function updateUserRole(req, res) {
+  try {
+    const { userId, newRole } = req.body
+    
+    if (!['user', 'dermatologist', 'admin'].includes(newRole)) {
+      return res.status(400).json({ error: 'Invalid role' })
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { role: newRole }, 
+      { new: true }
+    ).select('-password')
+    
+    if (!user) return res.status(404).json({ error: 'User not found' })
+    
+    res.json({ message: 'User role updated successfully', user })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 }

@@ -19,7 +19,7 @@ export default function Login() {
     try {
       const { data } = await API.post('/auth/login', { email, password });
       login(data.user, data.token);
-      nav('/dashboard');
+      nav('/auto-redirect');
     } catch (err) {
       setError(err?.response?.data?.error || 'Login failed');
     } finally {

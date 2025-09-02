@@ -13,6 +13,41 @@ export default function App() {
     setCartCount(stored.length);
   }, []);
 
+  function getNavItems() {
+    if (!user) return [];
+    
+    const commonItems = [
+      { to: "/profile", label: "Profile" }
+    ];
+    
+    switch (user.role) {
+      case 'admin':
+        return [
+          { to: "/admin/dashboard", label: "Admin Dashboard" },
+          ...commonItems
+        ];
+      case 'dermatologist':
+        return [
+          { to: "/dermatologist/dashboard", label: "Dashboard" },
+          { to: "/products", label: "Products" },
+          { to: "/tickets", label: "Consultations" },
+          ...commonItems
+        ];
+      case 'user':
+      default:
+        return [
+          { to: "/dashboard", label: "Dashboard" },
+          { to: "/products", label: "Shop" },
+          { to: "/routine", label: "Routine" },
+          { to: "/timeline", label: "Progress" },
+          { to: "/tickets", label: "Help" },
+          ...commonItems
+        ];
+    }
+  }
+
+  const navItems = getNavItems();
+
   function onSearch(e) {
     e.preventDefault();
     navigate(`/products?search=${encodeURIComponent(q)}`);
@@ -33,19 +68,37 @@ export default function App() {
           <div className="nav-link-group">
             {user ? (
               <>
-                <NavLink to="/profile" className="nav-link">Hi {user?.name || 'User'}</NavLink>
+                <NavLink to="/profile" className="nav-link">
+                  Hi {user?.name || 'User'} 
+                  <span style={{ 
+                    fontSize: '11px', 
+                    background: user.role === 'admin' ? '#dc2626' : user.role === 'dermatologist' ? '#0369a1' : '#16a34a',
+                    color: 'white',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    marginLeft: '6px',
+                    textTransform: 'capitalize'
+                  }}>
+                    {user.role}
+                  </span>
+                </NavLink>
+                {navItems.map(item => (
+                  <NavLink key={item.to} to={item.to} className="nav-link">
+                    {item.label}
+                  </NavLink>
+                ))}
                 <button className="btn ghost" onClick={logout}>Logout</button>
               </>
             ) : (
               <>
                 <NavLink to="/login" className="nav-link">Login</NavLink>
                 <NavLink to="/register" className="btn">Sign up</NavLink>
+                <NavLink to="/products" className="nav-link">Shop</NavLink>
               </>
             )}
-            <NavLink to="/products" className="nav-link">Shop</NavLink>
-            <NavLink to="/routine" className="nav-link">Routine</NavLink>
-            <NavLink to="/tickets" className="nav-link">Help</NavLink>
-            <span className="nav-link">Cart {cartCount}</span>
+            {user && user.role === 'user' && (
+              <span className="nav-link">Cart {cartCount}</span>
+            )}
           </div>
         </div>
       </div>

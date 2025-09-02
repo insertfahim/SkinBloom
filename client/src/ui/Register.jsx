@@ -10,6 +10,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('user');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -32,14 +33,14 @@ export default function Register() {
     }
 
     try {
-      console.log('Attempting registration with:', { name, email, password: '***' });
+      console.log('Attempting registration with:', { name, email, password: '***', role });
       console.log('API base URL:', API.defaults.baseURL);
       
-      const { data } = await API.post('/auth/register', { name, email, password });
+      const { data } = await API.post('/auth/register', { name, email, password, role });
       console.log('Registration successful:', data);
       
       login(data.user, data.token);
-      nav('/profile');
+      nav('/auto-redirect');
     } catch (err) {
       console.error('Registration error:', err);
       console.error('Error response:', err?.response);
@@ -112,6 +113,75 @@ export default function Register() {
                 transition: 'border-color 0.2s'
               }}
             />
+          </div>
+
+          <div style={{textAlign: 'left'}}>
+            <label style={{
+              display: 'block',
+              marginBottom: '12px',
+              fontWeight: '500',
+              color: 'var(--text-color)'
+            }}>
+              Account Type
+            </label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '12px',
+              marginBottom: '8px'
+            }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '16px',
+                border: `2px solid ${role === 'user' ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                background: role === 'user' ? 'rgba(139, 69, 19, 0.05)' : 'transparent',
+                transition: 'all 0.2s'
+              }}>
+                <input
+                  type="radio"
+                  name="role"
+                  value="user"
+                  checked={role === 'user'}
+                  onChange={e => setRole(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                <div>
+                  <div style={{ fontWeight: '600', fontSize: '14px' }}>👤 User</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                    Get personalized skincare
+                  </div>
+                </div>
+              </label>
+              
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '16px',
+                border: `2px solid ${role === 'dermatologist' ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                background: role === 'dermatologist' ? 'rgba(139, 69, 19, 0.05)' : 'transparent',
+                transition: 'all 0.2s'
+              }}>
+                <input
+                  type="radio"
+                  name="role"
+                  value="dermatologist"
+                  checked={role === 'dermatologist'}
+                  onChange={e => setRole(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                <div>
+                  <div style={{ fontWeight: '600', fontSize: '14px' }}>👨‍⚕️ Dermatologist</div>
+                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
+                    Provide expert care
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div style={{textAlign: 'left'}}>
@@ -206,13 +276,24 @@ export default function Register() {
             color: '#166534'
           }}>
             <p style={{margin: 0, fontWeight: '600', marginBottom: '8px'}}>
-              ✨ What you'll get:
+              ✨ {role === 'dermatologist' ? "What you'll provide:" : "What you'll get:"}
             </p>
             <ul style={{margin: 0, paddingLeft: '16px'}}>
-              <li>Personalized skincare routine recommendations</li>
-              <li>AI-powered skin analysis and tracking</li>
-              <li>Access to expert-curated product catalog</li>
-              <li>Progress monitoring with photo timeline</li>
+              {role === 'dermatologist' ? (
+                <>
+                  <li>Manage patient consultations and tickets</li>
+                  <li>Provide expert skincare recommendations</li>
+                  <li>Access professional dashboard and analytics</li>
+                  <li>Connect with clients seeking dermatological advice</li>
+                </>
+              ) : (
+                <>
+                  <li>Personalized skincare routine recommendations</li>
+                  <li>AI-powered skin analysis and tracking</li>
+                  <li>Access to expert-curated product catalog</li>
+                  <li>Progress monitoring with photo timeline</li>
+                </>
+              )}
             </ul>
           </div>
 
