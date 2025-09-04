@@ -12,7 +12,7 @@ export default function Products() {
   const [loading, setLoading] = useState(false)
   const [category, setCategory] = useState('')
   const [sortBy, setSortBy] = useState('name')
-  const [source, setSource] = useState('all') // all, local, external
+  const [source, setSource] = useState('local') // force local products only
   const [sourceStats, setSourceStats] = useState({})
   const [wishlist, setWishlist] = useState([])
   const location = useLocation()
@@ -47,14 +47,15 @@ export default function Products() {
     }
   }
 
-  const loadProducts = async (searchTerm = '', cat = '', sort = 'name', src = 'all') => {
+  const loadProducts = async (searchTerm = '', cat = '', sort = 'name', src = 'local') => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
       if (cat && cat !== 'All') params.append('category', cat)
       if (sort && sort !== 'name') params.append('sortBy', sort)
-      if (src !== 'all') params.append('source', src)
+    // always restrict to local
+    params.append('source', 'local')
       
       const { data } = await API.get(`/products?${params.toString()}`)
       setProducts(data.products || [])
@@ -140,14 +141,7 @@ export default function Products() {
     loadProducts(search, category, newSort, source)
   }
 
-  const handleSourceChange = (newSource) => {
-    setSource(newSource)
-    if (newSource === 'external') {
-      loadExternalProducts('all')
-    } else {
-      loadProducts(search, category, sortBy, newSource)
-    }
-  }
+  const handleSourceChange = () => {} // disabled
 
   const highlightText = (text, searchTerm) => {
     if (!searchTerm || !text) return text
@@ -382,32 +376,7 @@ export default function Products() {
           alignItems: 'center',
           marginBottom: '20px'
         }}>
-          {/* Data Source Filter */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginRight: '8px' }}>
-              Source:
-            </label>
-            {['all', 'local', 'external'].map(src => (
-              <button
-                key={src}
-                onClick={() => handleSourceChange(src)}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '20px',
-                  background: source === src ? '#3b82f6' : 'white',
-                  color: source === src ? 'white' : '#374151',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  transition: 'all 0.2s ease',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {src}
-              </button>
-            ))}
-          </div>
+          {/* Data Source Filter Removed (local only) */}
 
           {/* Categories */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -505,7 +474,10 @@ export default function Products() {
             gap: '24px'
           }}>
             {products.map((product, index) => {
-              const badge = getSourceBadge(product.source || 'local')
+              const badge = getSourceBadge('local')
+              const tags = product.tags || []
+              const isPopular = tags.includes('popular')
+              const stepTag = tags.find(t=>t.startsWith('step-'))
               
               return (
                 <div
@@ -530,19 +502,36 @@ export default function Products() {
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)'
                   }}
                 >
-                  {/* Source Badge */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '12px',
-                    right: '12px',
-                    background: badge.bg,
-                    color: badge.color,
-                    padding: '4px 8px',
-                    borderRadius: '8px',
-                    fontSize: '10px',
-                    fontWeight: '600'
-                  }}>
-                    {badge.text}
+                  {/* Source + Popular + Step Badges */}
+                  <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+                    <div style={{
+                      background: badge.bg,
+                      color: badge.color,
+                      padding: '4px 8px',
+                      borderRadius: '8px',
+                      fontSize: '10px',
+                      fontWeight: '600'
+                    }}>{badge.text}</div>
+                    {isPopular && (
+                      <div style={{
+                        background: '#fef3c7',
+                        color: '#b45309',
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        fontSize: '10px',
+                        fontWeight: '600'
+                      }}>POPULAR</div>
+                    )}
+                    {stepTag && (
+                      <div style={{
+                        background: '#e0f2fe',
+                        color: '#0369a1',
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        fontSize: '10px',
+                        fontWeight: '600'
+                      }}>{stepTag.replace('step-','Step ')} </div>
+                    )}
                   </div>
 
                   {/* Product Image */}
@@ -695,13 +684,23 @@ export default function Products() {
                     borderTop: '1px solid #f3f4f6'
                   }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                      <span style={{
-                        fontSize: '20px',
-                        fontWeight: '700',
-                        color: product.price > 0 ? '#059669' : '#6b7280'
-                      }}>
-                        {product.price > 0 ? `৳${product.price?.toLocaleString('bn-BD')}` : 'Price varies'}
-                      </span>
+                      {product.price > 0 ? (
+                        <span style={{
+                          fontSize: '20px',
+                          fontWeight: '700',
+                          color: '#059669'
+                        }}>
+                          ৳{product.price?.toLocaleString('bn-BD')}
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#6b7280'
+                        }}>
+                          Pricing Soon
+                        </span>
+                      )}
                       {product.originalPrice && product.originalPrice > product.price && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                           <span style={{
