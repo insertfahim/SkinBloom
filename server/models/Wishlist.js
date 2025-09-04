@@ -1,62 +1,44 @@
 import mongoose from 'mongoose'
 
-const WishlistSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const wishlistSchema = new mongoose.Schema({
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
   },
   products: [{
-    productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
+    productId: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'Product', 
+      required: true 
     },
-    externalProductId: String, // For external API products
-    productSource: {
-      type: String,
-      enum: ['local', 'makeup-api', 'sephora', 'ulta', 'dummy-api'],
-      default: 'local'
-    },
-    productData: {
-      name: String,
-      brand: String,
-      category: String,
-      price: Number,
-      image: String,
-      externalUrl: String
-    },
-    addedAt: {
-      type: Date,
-      default: Date.now
+    addedAt: { 
+      type: Date, 
+      default: Date.now 
     },
     priceAlert: {
-      enabled: {
-        type: Boolean,
-        default: false
-      },
-      targetPrice: Number,
-      currentPrice: Number,
-      lastChecked: Date
+      enabled: { type: Boolean, default: false },
+      targetPrice: { type: Number },
+      originalPrice: { type: Number }
+    },
+    notes: { type: String }, // Personal notes about the product
+    priority: { 
+      type: String, 
+      enum: ['high', 'medium', 'low'], 
+      default: 'medium' 
     }
   }],
-  
-  // Wishlist metadata
-  isPublic: {
-    type: Boolean,
-    default: false
-  },
-  name: {
-    type: String,
-    default: 'My Wishlist'
-  },
-  description: String
-}, { 
-  timestamps: true 
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 })
 
-// Index for faster queries
-WishlistSchema.index({ user: 1 })
-WishlistSchema.index({ 'products.productId': 1 })
-WishlistSchema.index({ 'products.externalProductId': 1 })
+// Compound index for user and product uniqueness
+wishlistSchema.index({ userId: 1, 'products.productId': 1 }, { unique: true })
 
-export default mongoose.model('Wishlist', WishlistSchema)
+// Update timestamp on save
+wishlistSchema.pre('save', function(next) {
+  this.updatedAt = new Date()
+  next()
+})
+
+export default mongoose.model('Wishlist', wishlistSchema)

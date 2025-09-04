@@ -1,455 +1,448 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import API from '../auth';
+import React, { useState, useEffect } from 'react'
+import API from '../auth'
+import { Link } from 'react-router-dom'
 
 export default function Wishlist() {
-  const { user } = useAuth();
-  const [wishlistItems, setWishlistItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [priceAlerts, setPriceAlerts] = useState({});
+  const [wishlist, setWishlist] = useState({ products: [] })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    loadWishlist();
-  }, []);
+    fetchWishlist()
+  }, [])
 
-  const loadWishlist = async () => {
+  const fetchWishlist = async () => {
     try {
-      const response = await API.get('/wishlist');
-      setWishlistItems(response.data.wishlist?.products || []);
-      
-      // Extract price alerts
-      const alerts = {};
-      response.data.wishlist?.products?.forEach(item => {
-        if (item.priceAlert?.enabled) {
-          alerts[item.productId || item.externalId] = item.priceAlert;
-        }
-      });
-      setPriceAlerts(alerts);
-    } catch (error) {
-      console.error('Error loading wishlist:', error);
+      setLoading(true)
+      const { data } = await API.get('/wishlist')
+      setWishlist(data)
+    } catch (err) {
+      setError('Failed to load wishlist')
+      console.error(err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const removeFromWishlist = async (productId, isExternal = false) => {
+  const removeFromWishlist = async (productId) => {
     try {
-      await API.delete('/wishlist/remove', {
-        data: { productId, isExternal }
-      });
-      
-      // Update local state
-      setWishlistItems(prev => 
-        prev.filter(item => 
-          isExternal 
-            ? item.externalId !== productId 
-            : item.productId !== productId
-        )
-      );
-      
-      // Remove price alert
-      setPriceAlerts(prev => {
-        const updated = { ...prev };
-        delete updated[productId];
-        return updated;
-      });
-    } catch (error) {
-      console.error('Error removing from wishlist:', error);
-      alert('Failed to remove item from wishlist');
+      const { data } = await API.delete(`/wishlist/remove/${productId}`)
+      setWishlist(data)
+    } catch (err) {
+      console.error('Error removing from wishlist:', err)
     }
-  };
+  }
 
-  const updatePriceAlert = async (productId, isExternal, alertPrice) => {
+  const updatePriceAlert = async (productId, enabled, targetPrice) => {
     try {
-      const response = await API.put('/wishlist/price-alert', {
-        productId,
-        isExternal,
-        alertPrice: parseFloat(alertPrice)
-      });
-      
-      setPriceAlerts(prev => ({
-        ...prev,
-        [productId]: {
-          enabled: true,
-          targetPrice: parseFloat(alertPrice)
-        }
-      }));
-      
-      alert('Price alert updated!');
-    } catch (error) {
-      console.error('Error updating price alert:', error);
-      alert('Failed to update price alert');
+      const { data } = await API.put(`/wishlist/update/${productId}`, {
+        priceAlert: { enabled, targetPrice: enabled ? targetPrice : undefined }
+      })
+      setWishlist(data)
+    } catch (err) {
+      console.error('Error updating price alert:', err)
     }
-  };
+  }
 
-  const togglePriceAlert = async (productId, isExternal) => {
+  const updateNotes = async (productId, notes) => {
     try {
-      const currentAlert = priceAlerts[productId];
-      const newEnabled = !currentAlert?.enabled;
-      
-      if (newEnabled && !currentAlert?.targetPrice) {
-        const price = prompt('Enter target price for alert:');
-        if (!price || isNaN(price)) {
-          return;
-        }
-        
-        await updatePriceAlert(productId, isExternal, price);
-      } else {
-        await API.put('/wishlist/price-alert', {
-          productId,
-          isExternal,
-          alertPrice: currentAlert?.targetPrice || 0,
-          enabled: newEnabled
-        });
-        
-        setPriceAlerts(prev => ({
-          ...prev,
-          [productId]: {
-            ...prev[productId],
-            enabled: newEnabled
-          }
-        }));
-      }
-    } catch (error) {
-      console.error('Error toggling price alert:', error);
+      const { data } = await API.put(`/wishlist/update/${productId}`, { notes })
+      setWishlist(data)
+    } catch (err) {
+      console.error('Error updating notes:', err)
     }
-  };
+  }
+
+  const clearWishlist = async () => {
+    if (!confirm('Are you sure you want to clear your entire wishlist?')) return
+    
+    try {
+      await API.delete('/wishlist/clear')
+      setWishlist({ products: [] })
+    } catch (err) {
+      console.error('Error clearing wishlist:', err)
+    }
+  }
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Loading your wishlist...</p>
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div style={{ fontSize: '18px', color: 'var(--muted)' }}>
+          Loading your wishlist...
+        </div>
       </div>
-    );
-  }
-
-  if (wishlistItems.length === 0) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-        <div style={{ fontSize: '64px', marginBottom: '20px' }}>💖</div>
-        <h2 style={{ color: 'var(--text-color)', marginBottom: '12px' }}>
-          Your Wishlist is Empty
-        </h2>
-        <p style={{ color: 'var(--muted)', marginBottom: '24px' }}>
-          Start adding products you love to keep track of them!
-        </p>
-        <button
-          onClick={() => window.location.href = '/products'}
-          style={{
-            padding: '12px 24px',
-            background: 'var(--primary-color)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          Browse Products
-        </button>
-      </div>
-    );
+    )
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#fafafa' }}>
       {/* Header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{
-          color: 'var(--text-color)',
-          fontSize: '32px',
-          marginBottom: '8px'
-        }}>
-          My Wishlist
+      <div style={{
+        background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+        color: 'white',
+        padding: '60px 20px',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ fontSize: '36px', marginBottom: '16px' }}>
+          ❤️ My Wishlist
         </h1>
-        <p style={{ color: 'var(--muted)', fontSize: '16px' }}>
-          {wishlistItems.length} item{wishlistItems.length !== 1 ? 's' : ''} saved
+        <p style={{ fontSize: '18px', opacity: 0.9, maxWidth: '600px', margin: '0 auto' }}>
+          Save your favorite products and get notified when prices drop
         </p>
       </div>
 
-      {/* Wishlist Grid */}
+      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        {error && (
+          <div style={{
+            background: '#fee',
+            border: '1px solid #fcc',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '20px',
+            color: '#c33'
+          }}>
+            {error}
+          </div>
+        )}
+
+        {wishlist.products.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '80px 20px',
+            background: 'white',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '24px' }}>💔</div>
+            <h2 style={{ marginBottom: '16px', color: 'var(--text-color)' }}>
+              Your wishlist is empty
+            </h2>
+            <p style={{ color: 'var(--muted)', marginBottom: '32px', fontSize: '16px' }}>
+              Start building your perfect skincare collection by adding products to your wishlist
+            </p>
+            <Link to="/products" className="btn" style={{ textDecoration: 'none' }}>
+              Explore Products
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Wishlist Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '30px',
+              padding: '0 4px'
+            }}>
+              <div>
+                <h2 style={{ margin: 0, color: 'var(--text-color)' }}>
+                  {wishlist.products.length} Item{wishlist.products.length !== 1 ? 's' : ''}
+                </h2>
+                <p style={{ color: 'var(--muted)', margin: '4px 0 0 0' }}>
+                  Added on {new Date(wishlist.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <button className="btn secondary" onClick={clearWishlist}>
+                Clear All
+              </button>
+            </div>
+
+            {/* Wishlist Items */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {wishlist.products.map(item => (
+                <WishlistItem
+                  key={item.productId._id}
+                  item={item}
+                  onRemove={() => removeFromWishlist(item.productId._id)}
+                  onUpdatePriceAlert={(enabled, targetPrice) => 
+                    updatePriceAlert(item.productId._id, enabled, targetPrice)
+                  }
+                  onUpdateNotes={(notes) => updateNotes(item.productId._id, notes)}
+                />
+              ))}
+            </div>
+
+            {/* Continue Shopping */}
+            <div style={{
+              textAlign: 'center',
+              marginTop: '60px',
+              padding: '40px',
+              background: 'white',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)'
+            }}>
+              <h3 style={{ marginBottom: '16px' }}>Keep Exploring</h3>
+              <p style={{ color: 'var(--muted)', marginBottom: '24px' }}>
+                Discover more products to complete your skincare routine
+              </p>
+              <Link to="/products" className="btn" style={{ textDecoration: 'none' }}>
+                Continue Shopping
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function WishlistItem({ item, onRemove, onUpdatePriceAlert, onUpdateNotes }) {
+  const [showPriceAlert, setShowPriceAlert] = useState(false)
+  const [targetPrice, setTargetPrice] = useState(item.priceAlert?.targetPrice || '')
+  const [notes, setNotes] = useState(item.notes || '')
+  const [editingNotes, setEditingNotes] = useState(false)
+
+  const product = item.productId
+
+  const handlePriceAlertToggle = () => {
+    const enabled = !item.priceAlert?.enabled
+    if (enabled && targetPrice) {
+      onUpdatePriceAlert(enabled, parseFloat(targetPrice))
+    } else if (!enabled) {
+      onUpdatePriceAlert(false)
+    }
+  }
+
+  const handlePriceAlertSave = () => {
+    if (targetPrice && parseFloat(targetPrice) > 0) {
+      onUpdatePriceAlert(true, parseFloat(targetPrice))
+      setShowPriceAlert(false)
+    }
+  }
+
+  const handleNotesSave = () => {
+    onUpdateNotes(notes)
+    setEditingNotes(false)
+  }
+
+  return (
+    <div className="card" style={{ padding: '24px' }}>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: '24px'
+        gridTemplateColumns: '120px 1fr auto',
+        gap: '20px',
+        alignItems: 'start'
       }}>
-        {wishlistItems.map((item, index) => {
-          const productId = item.productId || item.externalId;
-          const isExternal = !item.productId;
-          const alert = priceAlerts[productId];
-          
-          return (
-            <div
-              key={`${productId}-${index}`}
-              className="card"
-              style={{
-                padding: '20px',
-                position: 'relative',
-                background: 'var(--card-background)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px'
-              }}
-            >
-              {/* Remove Button */}
-              <button
-                onClick={() => removeFromWishlist(productId, isExternal)}
-                style={{
-                  position: 'absolute',
-                  top: '12px',
-                  right: '12px',
-                  background: 'rgba(220, 53, 69, 0.1)',
-                  color: '#dc3545',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '16px'
-                }}
-                title="Remove from wishlist"
-              >
-                ×
-              </button>
+        {/* Product Image */}
+        <div style={{
+          width: '120px',
+          height: '120px',
+          background: `url(${product.image}) center/cover`,
+          backgroundColor: '#f5f5f5',
+          borderRadius: '8px'
+        }} />
 
-              {/* Product Image */}
-              {item.image_link && (
-                <div style={{
-                  width: '100%',
-                  height: '200px',
-                  marginBottom: '16px',
-                  overflow: 'hidden',
-                  borderRadius: '8px',
-                  background: '#f5f5f5'
-                }}>
-                  <img
-                    src={item.image_link}
-                    alt={item.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
+        {/* Product Details */}
+        <div style={{ flex: 1 }}>
+          <div style={{ marginBottom: '8px' }}>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              {product.brand}
+            </div>
+            <h3 style={{ fontSize: '18px', margin: '4px 0', color: 'var(--text-color)' }}>
+              {product.name}
+            </h3>
+          </div>
 
-              {/* Product Info */}
-              <div style={{ marginBottom: '16px' }}>
-                <h3 style={{
-                  color: 'var(--text-color)',
-                  fontSize: '18px',
-                  marginBottom: '8px',
-                  lineHeight: '1.4'
-                }}>
-                  {item.name}
-                </h3>
-                
-                {item.brand && (
-                  <p style={{
-                    color: 'var(--muted)',
-                    fontSize: '14px',
-                    marginBottom: '8px',
-                    textTransform: 'capitalize'
-                  }}>
-                    {item.brand}
-                  </p>
-                )}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <span style={{
+              background: 'var(--primary-light)',
+              color: 'var(--primary-color)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: '500'
+            }}>
+              {product.category}
+            </span>
+            {product.skinType.slice(0, 2).map(type => (
+              <span key={type} style={{
+                background: '#e8f5e8',
+                color: '#2d5016',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '12px'
+              }}>
+                {type}
+              </span>
+            ))}
+          </div>
 
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '12px'
-                }}>
-                  <span style={{
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: '#ffc107' }}>⭐</span>
+              <span style={{ fontSize: '14px', fontWeight: '500' }}>{product.rating}</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '600', color: 'var(--primary-color)' }}>
+              ${product.price}
+            </div>
+          </div>
+
+          {/* Price Alert */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <input
+                type="checkbox"
+                checked={item.priceAlert?.enabled || false}
+                onChange={handlePriceAlertToggle}
+                style={{ marginRight: '4px' }}
+              />
+              <span style={{ fontSize: '14px', fontWeight: '500' }}>Price Alert</span>
+              {!item.priceAlert?.enabled && (
+                <button
+                  onClick={() => setShowPriceAlert(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
                     color: 'var(--primary-color)',
-                    fontSize: '20px',
-                    fontWeight: '700'
-                  }}>
-                    {item.price ? `$${item.price}` : 'Price not available'}
-                  </span>
-                  
-                  {item.rating && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ color: '#fbbf24' }}>★</span>
-                      <span style={{ color: 'var(--text-color)', fontSize: '14px' }}>
-                        {item.rating}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {item.category && (
-                  <span style={{
-                    background: 'var(--primary-color)',
-                    color: 'white',
-                    padding: '4px 8px',
-                    borderRadius: '12px',
                     fontSize: '12px',
-                    fontWeight: '600'
-                  }}>
-                    {item.category}
-                  </span>
-                )}
-              </div>
-
-              {/* Price Alert Section */}
-              {item.price && (
-                <div style={{
-                  padding: '12px',
-                  background: alert?.enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(156, 163, 175, 0.1)',
-                  borderRadius: '8px',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: '8px'
-                  }}>
-                    <span style={{
-                      color: 'var(--text-color)',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}>
-                      Price Alert
-                    </span>
-                    <button
-                      onClick={() => togglePriceAlert(productId, isExternal)}
-                      style={{
-                        background: alert?.enabled ? '#22c55e' : '#6b7280',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '4px 12px',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {alert?.enabled ? 'ON' : 'OFF'}
-                    </button>
-                  </div>
-                  
-                  {alert?.enabled && (
-                    <p style={{
-                      color: 'var(--muted)',
-                      fontSize: '12px',
-                      margin: 0
-                    }}>
-                      Alert when price drops below ${alert.targetPrice}
-                    </p>
-                  )}
-                </div>
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Set Target
+                </button>
               )}
+            </div>
 
-              {/* Action Buttons */}
+            {item.priceAlert?.enabled && (
+              <div style={{
+                background: '#e8f5e8',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                color: '#2d5016'
+              }}>
+                🔔 Alert when price drops below ${item.priceAlert.targetPrice}
+              </div>
+            )}
+
+            {showPriceAlert && (
               <div style={{
                 display: 'flex',
-                gap: '8px'
+                gap: '8px',
+                alignItems: 'center',
+                marginTop: '8px'
               }}>
-                {item.product_link && (
-                  <a
-                    href={item.product_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: 'var(--primary-color)',
-                      color: 'white',
-                      textDecoration: 'none',
-                      borderRadius: '6px',
-                      textAlign: 'center',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    View Product
-                  </a>
-                )}
-                
-                <button
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: item.name,
-                        text: `Check out this product: ${item.name}`,
-                        url: item.product_link || window.location.href
-                      });
-                    }
-                  }}
+                <input
+                  type="number"
+                  placeholder="Target price"
+                  value={targetPrice}
+                  onChange={(e) => setTargetPrice(e.target.value)}
                   style={{
-                    padding: '10px',
-                    background: 'transparent',
-                    color: 'var(--text-color)',
+                    padding: '6px 8px',
                     border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
+                    borderRadius: '4px',
+                    width: '100px',
+                    fontSize: '13px'
                   }}
-                  title="Share product"
+                />
+                <button onClick={handlePriceAlertSave} className="btn" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                  Save
+                </button>
+                <button
+                  onClick={() => setShowPriceAlert(false)}
+                  className="btn secondary"
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
                 >
-                  📤
+                  Cancel
                 </button>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            )}
+          </div>
 
-      {/* Quick Actions */}
-      <div style={{
-        marginTop: '40px',
-        padding: '24px',
-        background: 'var(--card-background)',
-        borderRadius: '12px',
-        textAlign: 'center'
-      }}>
-        <h3 style={{ color: 'var(--text-color)', marginBottom: '16px' }}>
-          Quick Actions
-        </h3>
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          justifyContent: 'center',
-          flexWrap: 'wrap'
-        }}>
+          {/* Notes */}
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>
+              Notes
+            </div>
+            {editingNotes ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'start' }}>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add personal notes about this product..."
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    minHeight: '60px',
+                    resize: 'vertical'
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <button onClick={handleNotesSave} className="btn" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingNotes(false)
+                      setNotes(item.notes || '')
+                    }}
+                    className="btn secondary"
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => setEditingNotes(true)}
+                style={{
+                  padding: '8px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '4px',
+                  minHeight: '40px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: notes ? 'var(--text-color)' : 'var(--muted)',
+                  background: notes ? 'white' : '#f9f9f9'
+                }}
+              >
+                {notes || 'Click to add notes...'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'end' }}>
           <button
-            onClick={() => window.location.href = '/products'}
+            onClick={onRemove}
             style={{
-              padding: '12px 24px',
-              background: 'var(--primary-color)',
-              color: 'white',
+              background: 'none',
               border: 'none',
-              borderRadius: '8px',
-              fontWeight: '600',
-              cursor: 'pointer'
+              fontSize: '18px',
+              cursor: 'pointer',
+              padding: '4px',
+              color: '#dc2626'
             }}
+            title="Remove from wishlist"
           >
-            Browse More Products
+            ❌
           </button>
-          <button
-            onClick={() => window.location.href = '/comparison'}
-            style={{
-              padding: '12px 24px',
-              background: 'transparent',
-              color: 'var(--primary-color)',
-              border: '2px solid var(--primary-color)',
-              borderRadius: '8px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            Compare Products
+          
+          <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'right' }}>
+            Added {new Date(item.addedAt).toLocaleDateString()}
+          </div>
+
+          <button className="btn" style={{ fontSize: '14px', marginTop: '8px' }}>
+            Add to Cart
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -11,12 +11,11 @@ import AdminDashboard from './ui/AdminDashboard.jsx'
 import DermatologistDashboard from './ui/DermatologistDashboard.jsx'
 import Login from './ui/Login.jsx'
 import Register from './ui/Register.jsx'
+import Profile from './ui/Profile.jsx'
 import Products from './ui/Products.jsx'
 import ProductDetail from './ui/ProductDetail.jsx'
 import Wishlist from './ui/Wishlist.jsx'
-import ProductComparison from './ui/ProductComparison.jsx'
-import PriceTracking from './ui/PriceTracking.jsx'
-import Profile from './ui/Profile.jsx'
+import Cart from './ui/Cart.jsx'
 import Routine from './ui/Routine.jsx'
 import Feedback from './ui/Feedback.jsx'
 import Timeline from './ui/Timeline.jsx'
@@ -35,6 +34,18 @@ root.render(
           <Route path='register' element={<Register />} />
           <Route path='unauthorized' element={<Unauthorized />} />
           
+          {/* Semi-public routes - accessible to logged in users */}
+          <Route path='products' element={
+            <ProtectedRoute allowedRoles={['user', 'dermatologist', 'admin']}>
+              <Products />
+            </ProtectedRoute>
+          } />
+          <Route path='products/:id' element={
+            <ProtectedRoute allowedRoles={['user', 'dermatologist', 'admin']}>
+              <ProductDetail />
+            </ProtectedRoute>
+          } />
+          
           {/* Protected routes - Auto redirect based on role */}
           <Route path='auto-redirect' element={<RoleBasedRedirect />} />
           
@@ -44,29 +55,14 @@ root.render(
               <Dashboard />
             </ProtectedRoute>
           } />
-          <Route path='products' element={
-            <ProtectedRoute allowedRoles={['user', 'dermatologist']}>
-              <Products />
-            </ProtectedRoute>
-          } />
-          <Route path='products/:id' element={
-            <ProtectedRoute allowedRoles={['user', 'dermatologist']}>
-              <ProductDetail />
-            </ProtectedRoute>
-          } />
           <Route path='wishlist' element={
             <ProtectedRoute allowedRoles={['user']}>
               <Wishlist />
             </ProtectedRoute>
           } />
-          <Route path='comparison' element={
+          <Route path='cart' element={
             <ProtectedRoute allowedRoles={['user']}>
-              <ProductComparison />
-            </ProtectedRoute>
-          } />
-          <Route path='price-tracking' element={
-            <ProtectedRoute allowedRoles={['user']}>
-              <PriceTracking />
+              <Cart />
             </ProtectedRoute>
           } />
           <Route path='profile' element={

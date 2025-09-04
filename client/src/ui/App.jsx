@@ -6,19 +6,18 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const [q, setQ] = useState('');
-  const [cartCount, setCartCount] = useState(0);
 
   // Check if we're on the home page
   const isHomePage = location.pathname === '/';
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCartCount(stored.length);
-  }, []);
+    // Remove cart tracking as products are removed
+  }, [])
 
   function getNavItems() {
-    if (!user) return [];
+    if (!user) {
+      return [];
+    }
     
     const commonItems = [
       { to: "/profile", label: "Profile" }
@@ -43,8 +42,7 @@ export default function App() {
           { to: "/dashboard", label: "Dashboard" },
           { to: "/products", label: "Shop" },
           { to: "/wishlist", label: "Wishlist" },
-          { to: "/comparison", label: "Compare" },
-          { to: "/price-tracking", label: "Price Alerts" },
+          { to: "/cart", label: "Cart" },
           { to: "/routine", label: "Routine" },
           { to: "/timeline", label: "Progress" },
           { to: "/tickets", label: "Help" },
@@ -55,22 +53,12 @@ export default function App() {
 
   const navItems = getNavItems();
 
-  function onSearch(e) {
-    e.preventDefault();
-    navigate(`/products?search=${encodeURIComponent(q)}`);
-  }
-
   return (
     <>
       {/* Header */}
       <div className="header">
         <div className="container navbar">
           <Link to="/" className="logo">SkinBloom</Link>
-
-          <form onSubmit={onSearch} className="search">
-            <input className="input" placeholder="Search products, ingredients…" value={q} onChange={e => setQ(e.target.value)} />
-            <button className="btn blue">Search</button>
-          </form>
 
           <div className="nav-link-group">
             {user ? (
@@ -100,11 +88,7 @@ export default function App() {
               <>
                 <NavLink to="/login" className="nav-link">Login</NavLink>
                 <NavLink to="/register" className="btn blue">Sign up</NavLink>
-                <NavLink to="/products" className="nav-link">Shop</NavLink>
               </>
-            )}
-            {user && user.role === 'user' && (
-              <span className="nav-link">Cart {cartCount}</span>
             )}
           </div>
         </div>
@@ -120,7 +104,6 @@ export default function App() {
         <div className="container footer-content">
           <div>© {new Date().getFullYear()} SkinBloom • Skincare simplified</div>
           <div className="footer-links">
-            <Link to="/products">Shop</Link>
             <Link to="/profile">Profile</Link>
             <Link to="/routine">Routine</Link>
             <a href="mailto:support@skinbloom.app">Contact</a>

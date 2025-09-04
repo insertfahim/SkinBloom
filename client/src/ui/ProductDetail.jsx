@@ -1,606 +1,531 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import API from '../auth';
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import API from '../auth'
 
 export default function ProductDetail() {
-  const { id } = useParams();
-  const { user } = useAuth();
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [rating, setRating] = useState(0);
-  const [userRating, setUserRating] = useState(0);
-  const [reviews, setReviews] = useState([]);
-  const [isInWishlist, setIsInWishlist] = useState(false);
-  const [cart, setCart] = useState([]);
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [product, setProduct] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [addingToCart, setAddingToCart] = useState(false)
+  const [addingToWishlist, setAddingToWishlist] = useState(false)
+  const [isInWishlist, setIsInWishlist] = useState(false)
+  const [selectedImage, setSelectedImage] = useState(0)
 
   useEffect(() => {
-    loadProduct();
-    if (user) {
-      loadWishlistStatus();
-      loadUserRating();
+    if (id) {
+      fetchProduct()
+      checkWishlistStatus()
     }
-    loadCart();
-  }, [id, user]);
+  }, [id])
 
-  const loadProduct = async () => {
+  const fetchProduct = async () => {
     try {
-      const response = await API.get(`/products/${id}`);
-      setProduct(response.data);
-      setSelectedImage(0);
-    } catch (error) {
-      console.error('Error loading product:', error);
+      setLoading(true)
+      const { data } = await API.get(`/products/${id}`)
+      setProduct(data)
+    } catch (err) {
+      setError('Product not found')
+      console.error(err)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const loadWishlistStatus = async () => {
+  const checkWishlistStatus = async () => {
     try {
-      const response = await API.get('/wishlist');
-      const wishlistItems = response.data.wishlist?.products || [];
-      const inWishlist = wishlistItems.some(item => item.productId === id);
-      setIsInWishlist(inWishlist);
-    } catch (error) {
-      console.error('Error checking wishlist:', error);
+      const { data } = await API.get('/wishlist')
+      setIsInWishlist(data.products?.some(item => item.productId._id === id) || false)
+    } catch (err) {
+      // Ignore errors (user might not be logged in)
     }
-  };
+  }
 
-  const loadUserRating = async () => {
+  const addToCart = async () => {
     try {
-      // This would need a new API endpoint to get user's rating for this product
-      // For now, we'll use a placeholder
-      setUserRating(0);
-    } catch (error) {
-      console.error('Error loading user rating:', error);
+      setAddingToCart(true)
+      await API.post('/cart/add', { productId: id, quantity })
+      alert('Product added to cart!')
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to add to cart')
+    } finally {
+      setAddingToCart(false)
     }
-  };
-
-  const loadCart = () => {
-    const stored = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCart(stored);
-  };
+  }
 
   const toggleWishlist = async () => {
-    if (!user) {
-      alert('Please login to add products to wishlist');
-      return;
-    }
-
     try {
+      setAddingToWishlist(true)
       if (isInWishlist) {
-        await API.delete('/wishlist/remove', {
-          data: { productId: id, isExternal: false }
-        });
-        setIsInWishlist(false);
+        await API.delete(`/wishlist/remove/${id}`)
+        setIsInWishlist(false)
       } else {
-        await API.post('/wishlist/add', {
-          productId: id,
-          isExternal: false,
-          productData: {
-            name: product.name,
-            brand: product.brand,
-            price: product.price,
-            image_link: product.image,
-            category: product.category,
-            rating: product.rating,
-            description: product.description
-          }
-        });
-        setIsInWishlist(true);
+        await API.post('/wishlist/add', { productId: id })
+        setIsInWishlist(true)
       }
-    } catch (error) {
-      console.error('Error updating wishlist:', error);
-      alert('Failed to update wishlist');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update wishlist')
+    } finally {
+      setAddingToWishlist(false)
     }
-  };
-
-  const addToCart = () => {
-    const cartItem = {
-      id: product._id,
-      name: product.name,
-      brand: product.brand,
-      price: product.price,
-      image: product.image,
-      quantity: quantity,
-      addedAt: new Date().toISOString()
-    };
-
-    const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existingItemIndex = existingCart.findIndex(item => item.id === product._id);
-
-    if (existingItemIndex > -1) {
-      existingCart[existingItemIndex].quantity += quantity;
-    } else {
-      existingCart.push(cartItem);
-    }
-
-    localStorage.setItem('cart', JSON.stringify(existingCart));
-    setCart(existingCart);
-    alert(`${product.name} added to cart!`);
-  };
-
-  const submitRating = async (newRating) => {
-    if (!user) {
-      alert('Please login to rate products');
-      return;
-    }
-
-    try {
-      // This would need a new API endpoint for product ratings
-      // For now, we'll update the local state
-      setUserRating(newRating);
-      setRating(newRating);
-      alert('Thank you for your rating!');
-    } catch (error) {
-      console.error('Error submitting rating:', error);
-      alert('Failed to submit rating');
-    }
-  };
+  }
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '400px' 
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <p>Loading product details...</p>
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div style={{ fontSize: '18px', color: 'var(--muted)' }}>
+          Loading product...
         </div>
       </div>
-    );
+    )
   }
 
-  if (!product) {
+  if (error || !product) {
     return (
-      <div style={{ 
-        textAlign: 'center', 
-        padding: '60px 20px' 
-      }}>
-        <div style={{ fontSize: '64px', marginBottom: '20px' }}>❌</div>
-        <h2>Product Not Found</h2>
-        <p>The product you're looking for doesn't exist.</p>
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <h2>Product not found</h2>
+        <p style={{ color: 'var(--muted)', marginBottom: '20px' }}>
+          The product you're looking for doesn't exist or has been removed.
+        </p>
+        <button className="btn" onClick={() => navigate('/products')}>
+          Browse Products
+        </button>
       </div>
-    );
+    )
   }
 
-  const images = product.images && product.images.length > 0 ? product.images : [product.image];
-  const discountPercentage = product.originalPrice && product.originalPrice > product.price 
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
-    : 0;
+  const discountedPrice = product.discount > 0 
+    ? product.price * (1 - product.discount / 100)
+    : product.price
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '40px',
-        marginBottom: '40px'
-      }}>
-        {/* Product Images */}
-        <div>
-          {/* Main Image */}
-          <div style={{
-            width: '100%',
-            height: '500px',
-            marginBottom: '16px',
-            border: '1px solid #e5e7eb',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            background: '#f9fafb'
-          }}>
-            <img
-              src={images[selectedImage]}
-              alt={product.name}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-              onError={(e) => {
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDUwMCA1MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yNTAgMTUwQzIxNC4xMDEgMTUwIDE4NS4wMDEgMTc5LjEgMTg1LjAwMSAyMTVWMjg1QzE4NS4wMDEgMzIwLjkgMjE0LjEwMSAzNTAgMjUwIDM1MEMyODUuOSAzNTAgMzE1IDMyMC45IDMxNSAyODVWMjE1QzMxNSAxNzkuMSAyODUuOSAxNTAgMjUwIDE1MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
-              }}
-            />
-          </div>
-
-          {/* Thumbnail Images */}
-          {images.length > 1 && (
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              overflowX: 'auto'
-            }}>
-              {images.map((img, index) => (
-                <div
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  style={{
-                    width: '80px',
-                    height: '80px',
-                    border: selectedImage === index ? '2px solid var(--primary-color)' : '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}
-                >
-                  <img
-                    src={img}
-                    alt={`${product.name} ${index + 1}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+    <div style={{ minHeight: '100vh', background: '#fafafa' }}>
+      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        {/* Breadcrumb */}
+        <div style={{ marginBottom: '30px', fontSize: '14px', color: 'var(--muted)' }}>
+          <Link to="/products" style={{ color: 'var(--primary-color)', textDecoration: 'none' }}>
+            Products
+          </Link>
+          <span style={{ margin: '0 8px' }}>•</span>
+          <span>{product.category}</span>
+          <span style={{ margin: '0 8px' }}>•</span>
+          <span>{product.name}</span>
         </div>
 
-        {/* Product Info */}
-        <div>
-          {/* Brand & Name */}
-          <div style={{ marginBottom: '16px' }}>
-            <p style={{
-              color: 'var(--muted)',
-              fontSize: '16px',
-              marginBottom: '8px',
-              textTransform: 'capitalize'
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '60px',
+          '@media (max-width: 768px)': {
+            gridTemplateColumns: '1fr',
+            gap: '30px'
+          }
+        }}>
+          {/* Product Images */}
+          <div>
+            <div style={{
+              width: '100%',
+              height: '500px',
+              background: `url(${product.image}) center/cover`,
+              backgroundColor: '#f5f5f5',
+              borderRadius: '12px',
+              marginBottom: '20px',
+              position: 'relative'
             }}>
-              {product.brand}
-            </p>
-            <h1 style={{
-              color: 'var(--text-color)',
-              fontSize: '28px',
-              fontWeight: '700',
-              lineHeight: '1.3',
-              margin: 0
-            }}>
-              {product.name}
-            </h1>
-          </div>
-
-          {/* Rating */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '20px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {[1, 2, 3, 4, 5].map(star => (
-                <span
-                  key={star}
-                  style={{
-                    color: star <= (product.rating || 0) ? '#fbbf24' : '#e5e7eb',
-                    fontSize: '20px',
-                    cursor: user ? 'pointer' : 'default'
-                  }}
-                  onClick={() => user && submitRating(star)}
-                >
-                  ★
-                </span>
-              ))}
-            </div>
-            <span style={{ color: 'var(--text-color)', fontWeight: '600' }}>
-              {product.rating || 0}
-            </span>
-            <span style={{ color: 'var(--muted)', fontSize: '14px' }}>
-              ({product.reviewCount || 0} reviews)
-            </span>
-          </div>
-
-          {/* Size */}
-          {product.size && (
-            <div style={{ marginBottom: '16px' }}>
-              <span style={{
-                background: '#f0f9ff',
-                color: '#0369a1',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: '600'
-              }}>
-                Size: {product.size}
-              </span>
-            </div>
-          )}
-
-          {/* Price */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            marginBottom: '24px'
-          }}>
-            <span style={{
-              color: 'var(--primary-color)',
-              fontSize: '32px',
-              fontWeight: '700'
-            }}>
-              ৳{product.price?.toLocaleString('bn-BD')}
-            </span>
-            
-            {product.originalPrice && product.originalPrice > product.price && (
-              <>
-                <span style={{
-                  color: 'var(--muted)',
-                  fontSize: '20px',
-                  textDecoration: 'line-through'
-                }}>
-                  ৳{product.originalPrice?.toLocaleString('bn-BD')}
-                </span>
-                <span style={{
-                  background: '#dc2626',
+              {product.featured && (
+                <div style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '20px',
+                  background: 'var(--primary-color)',
                   color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
+                  padding: '8px 16px',
+                  borderRadius: '20px',
                   fontSize: '14px',
                   fontWeight: '600'
                 }}>
-                  {discountPercentage}% OFF
-                </span>
-              </>
-            )}
+                  Featured
+                </div>
+              )}
+              {product.discount > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  background: '#dc2626',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>
+                  -{product.discount}%
+                </div>
+              )}
+            </div>
+            
+            {/* Additional product images placeholder */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: '12px'
+            }}>
+              {[1, 2, 3, 4].map(i => (
+                <div
+                  key={i}
+                  style={{
+                    height: '80px',
+                    background: `url(${product.image}) center/cover`,
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    border: selectedImage === i ? '2px solid var(--primary-color)' : '2px solid transparent'
+                  }}
+                  onClick={() => setSelectedImage(i)}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Brief Description */}
-          {product.briefDescription && (
-            <p style={{
-              color: 'var(--text-color)',
-              fontSize: '16px',
-              lineHeight: '1.6',
-              marginBottom: '24px'
-            }}>
-              {product.briefDescription}
-            </p>
-          )}
+          {/* Product Info */}
+          <div>
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{
+                fontSize: '14px',
+                color: 'var(--muted)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '8px'
+              }}>
+                {product.brand}
+              </div>
+              <h1 style={{
+                fontSize: '32px',
+                fontWeight: '700',
+                lineHeight: '1.2',
+                marginBottom: '16px',
+                color: 'var(--text-color)'
+              }}>
+                {product.name}
+              </h1>
+            </div>
 
-          {/* Quantity & Actions */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            marginBottom: '32px'
-          }}>
-            {/* Quantity Selector */}
+            {/* Rating */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px'
+              gap: '12px',
+              marginBottom: '20px'
             }}>
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                style={{
-                  padding: '8px 12px',
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  fontSize: '18px'
-                }}
-              >
-                -
-              </button>
-              <span style={{
-                padding: '8px 16px',
-                borderLeft: '1px solid var(--border-color)',
-                borderRight: '1px solid var(--border-color)',
-                minWidth: '60px',
-                textAlign: 'center'
-              }}>
-                {quantity}
-              </span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                style={{
-                  padding: '8px 12px',
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  fontSize: '18px'
-                }}
-              >
-                +
-              </button>
-            </div>
-
-            {/* Add to Cart */}
-            <button
-              onClick={addToCart}
-              style={{
-                flex: 1,
-                padding: '12px 24px',
-                background: 'var(--primary-color)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              ADD TO CART
-            </button>
-
-            {/* Wishlist Button */}
-            <button
-              onClick={toggleWishlist}
-              style={{
-                padding: '12px',
-                background: isInWishlist ? '#dc2626' : 'transparent',
-                color: isInWishlist ? 'white' : 'var(--text-color)',
-                border: '2px solid ' + (isInWishlist ? '#dc2626' : 'var(--border-color)'),
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '20px'
-              }}
-              title={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-            >
-              {isInWishlist ? '❤️' : '🤍'}
-            </button>
-          </div>
-
-          {/* Product Details */}
-          <div style={{
-            background: 'var(--card-background)',
-            padding: '20px',
-            borderRadius: '12px',
-            border: '1px solid var(--border-color)'
-          }}>
-            {/* Category */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '12px'
-            }}>
-              <span style={{ color: 'var(--muted)' }}>Category:</span>
-              <span style={{ fontWeight: '600' }}>{product.category}</span>
-            </div>
-
-            {/* Stock Status */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '12px'
-            }}>
-              <span style={{ color: 'var(--muted)' }}>Stock:</span>
-              <span style={{
-                color: product.stockQuantity > 0 ? '#16a34a' : '#dc2626',
-                fontWeight: '600'
-              }}>
-                {product.stockQuantity > 0 ? `${product.stockQuantity} in stock` : 'Out of stock'}
-              </span>
-            </div>
-
-            {/* Skin Type */}
-            {product.skinType && product.skinType.length > 0 && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginBottom: '12px'
-              }}>
-                <span style={{ color: 'var(--muted)' }}>Skin Type:</span>
-                <span style={{ fontWeight: '600' }}>{product.skinType.join(', ')}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Product Details Tabs */}
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        border: '1px solid var(--border-color)',
-        overflow: 'hidden'
-      }}>
-        {/* Tab Headers */}
-        <div style={{
-          display: 'flex',
-          borderBottom: '1px solid var(--border-color)'
-        }}>
-          {['Description', 'Ingredients', 'How to Use', 'Benefits'].map(tab => (
-            <button
-              key={tab}
-              style={{
-                flex: 1,
-                padding: '16px',
-                background: 'none',
-                border: 'none',
-                borderBottom: '3px solid var(--primary-color)',
-                cursor: 'pointer',
-                fontWeight: '600',
-                color: 'var(--text-color)'
-              }}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div style={{ padding: '24px' }}>
-          {/* Description */}
-          <div>
-            <h3 style={{ marginBottom: '16px', color: 'var(--text-color)' }}>Description</h3>
-            <p style={{
-              color: 'var(--text-color)',
-              lineHeight: '1.6',
-              marginBottom: '24px'
-            }}>
-              {product.description}
-            </p>
-          </div>
-
-          {/* Ingredients */}
-          {product.ingredients && product.ingredients.length > 0 && (
-            <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ marginBottom: '16px', color: 'var(--text-color)' }}>Ingredients</h3>
-              <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px'
-              }}>
-                {product.ingredients.map((ingredient, index) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {[1, 2, 3, 4, 5].map(star => (
                   <span
-                    key={index}
+                    key={star}
                     style={{
-                      background: '#f0fdf4',
-                      color: '#166534',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: '500'
+                      color: star <= Math.floor(product.rating) ? '#ffc107' : '#e0e0e0',
+                      fontSize: '18px'
                     }}
                   >
-                    {ingredient}
+                    ⭐
+                  </span>
+                ))}
+                <span style={{ marginLeft: '8px', fontWeight: '600' }}>
+                  {product.rating}
+                </span>
+              </div>
+              <span style={{ color: 'var(--muted)' }}>
+                ({product.reviewCount} reviews)
+              </span>
+            </div>
+
+            {/* Price */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                <span style={{
+                  fontSize: '28px',
+                  fontWeight: '700',
+                  color: 'var(--primary-color)'
+                }}>
+                  ${discountedPrice.toFixed(2)}
+                </span>
+                {product.discount > 0 && (
+                  <span style={{
+                    fontSize: '20px',
+                    color: 'var(--muted)',
+                    textDecoration: 'line-through'
+                  }}>
+                    ${product.price.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              {product.discount > 0 && (
+                <div style={{
+                  color: '#16a34a',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>
+                  You save ${(product.price - discountedPrice).toFixed(2)} ({product.discount}% off)
+                </div>
+              )}
+            </div>
+
+            {/* Category & Step */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <span style={{
+                background: 'var(--primary-light)',
+                color: 'var(--primary-color)',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                {product.category}
+              </span>
+              <span style={{
+                background: '#f0f0f0',
+                color: '#666',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '14px'
+              }}>
+                Step {product.step}
+              </span>
+              {product.inStock ? (
+                <span style={{
+                  background: '#e8f5e8',
+                  color: '#16a34a',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  ✓ In Stock ({product.stockQuantity} available)
+                </span>
+              ) : (
+                <span style={{
+                  background: '#fee',
+                  color: '#dc2626',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Out of Stock
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '24px' }}>
+              <p style={{
+                fontSize: '16px',
+                lineHeight: '1.6',
+                color: 'var(--text-color)',
+                marginBottom: '16px'
+              }}>
+                {product.description}
+              </p>
+            </div>
+
+            {/* Skin Types */}
+            <div style={{ marginBottom: '24px' }}>
+              <h4 style={{ marginBottom: '12px', color: 'var(--text-color)' }}>
+                Suitable for:
+              </h4>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {product.skinType.map(type => (
+                  <span key={type} style={{
+                    background: '#e8f5e8',
+                    color: '#2d5016',
+                    padding: '4px 12px',
+                    borderRadius: '16px',
+                    fontSize: '14px'
+                  }}>
+                    {type}
                   </span>
                 ))}
               </div>
             </div>
-          )}
 
-          {/* How to Use */}
-          {product.howToUse && product.howToUse.length > 0 && (
-            <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ marginBottom: '16px', color: 'var(--text-color)' }}>How to Use</h3>
-              <ul style={{
-                color: 'var(--text-color)',
-                lineHeight: '1.6',
-                paddingLeft: '20px'
-              }}>
-                {product.howToUse.map((step, index) => (
-                  <li key={index} style={{ marginBottom: '8px' }}>{step}</li>
-                ))}
-              </ul>
+            {/* Quantity Selector */}
+            {product.inStock && (
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontWeight: '600',
+                  color: 'var(--text-color)'
+                }}>
+                  Quantity:
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      border: '1px solid var(--border-color)',
+                      background: 'white',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    -
+                  </button>
+                  <span style={{
+                    minWidth: '40px',
+                    textAlign: 'center',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}>
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(Math.min(product.stockQuantity, quantity + 1))}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      border: '1px solid var(--border-color)',
+                      background: 'white',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+              <button
+                className="btn"
+                onClick={addToCart}
+                disabled={!product.inStock || addingToCart}
+                style={{
+                  flex: 1,
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  padding: '16px',
+                  background: !product.inStock ? '#ccc' : undefined,
+                  cursor: !product.inStock ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {addingToCart ? 'Adding...' : !product.inStock ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+              
+              <button
+                onClick={toggleWishlist}
+                disabled={addingToWishlist}
+                style={{
+                  width: '56px',
+                  height: '56px',
+                  border: `2px solid ${isInWishlist ? '#dc2626' : 'var(--border-color)'}`,
+                  background: isInWishlist ? '#dc2626' : 'white',
+                  color: isInWishlist ? 'white' : 'var(--text-color)',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {addingToWishlist ? '...' : isInWishlist ? '❤️' : '🤍'}
+              </button>
             </div>
-          )}
 
-          {/* Key Benefits */}
-          {product.keyBenefits && product.keyBenefits.length > 0 && (
+            {/* Additional Info Tabs */}
             <div>
-              <h3 style={{ marginBottom: '16px', color: 'var(--text-color)' }}>Key Benefits</h3>
-              <ul style={{
-                color: 'var(--text-color)',
-                lineHeight: '1.6',
-                paddingLeft: '20px'
-              }}>
-                {product.keyBenefits.map((benefit, index) => (
-                  <li key={index} style={{ marginBottom: '8px' }}>{benefit}</li>
-                ))}
-              </ul>
+              <ProductTabs product={product} />
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
-  );
+  )
+}
+
+function ProductTabs({ product }) {
+  const [activeTab, setActiveTab] = useState('ingredients')
+
+  const tabs = [
+    { id: 'ingredients', label: 'Ingredients' },
+    { id: 'benefits', label: 'Benefits' },
+    { id: 'howToUse', label: 'How to Use' }
+  ]
+
+  return (
+    <div>
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid var(--border-color)',
+        marginBottom: '20px'
+      }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '12px 0',
+              marginRight: '32px',
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid var(--primary-color)' : '2px solid transparent',
+              color: activeTab === tab.id ? 'var(--primary-color)' : 'var(--muted)',
+              cursor: 'pointer',
+              fontWeight: activeTab === tab.id ? '600' : '400',
+              fontSize: '16px'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ minHeight: '100px' }}>
+        {activeTab === 'ingredients' && (
+          <div>
+            <h4 style={{ marginBottom: '12px' }}>Key Ingredients:</h4>
+            <ul style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {product.ingredients?.map((ingredient, index) => (
+                <li key={index} style={{ marginBottom: '4px' }}>{ingredient}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {activeTab === 'benefits' && (
+          <div>
+            <h4 style={{ marginBottom: '12px' }}>Key Benefits:</h4>
+            <ul style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {product.benefits?.map((benefit, index) => (
+                <li key={index} style={{ marginBottom: '4px' }}>{benefit}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {activeTab === 'howToUse' && (
+          <div>
+            <h4 style={{ marginBottom: '12px' }}>How to Use:</h4>
+            <p style={{ lineHeight: '1.6', color: 'var(--text-color)' }}>
+              {product.howToUse}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }

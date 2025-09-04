@@ -1,383 +1,151 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function SimpleDashboard() {
-  const navigate = useNavigate()
+  const { user } = useAuth();
 
-  const handleNavigation = (page) => {
-    navigate(`/${page}`)
+  if (user) {
+    // Redirect authenticated users to their appropriate dashboard
+    return (
+      <div className="welcome-container">
+        <div className="welcome-header">
+          <h1>Welcome back, {user.name}!</h1>
+          <p>Continue your skincare journey</p>
+        </div>
+        
+        <div className="dashboard-cards">
+          {user.role === 'admin' && (
+            <Link to="/admin/dashboard" className="dashboard-card admin">
+              <h3>Admin Dashboard</h3>
+              <p>Manage users and system settings</p>
+              <span className="card-arrow">→</span>
+            </Link>
+          )}
+          
+          {user.role === 'dermatologist' && (
+            <Link to="/dermatologist/dashboard" className="dashboard-card dermatologist">
+              <h3>Dermatologist Dashboard</h3>
+              <p>View consultations and help users</p>
+              <span className="card-arrow">→</span>
+            </Link>
+          )}
+          
+          {user.role === 'user' && (
+            <>
+              <Link to="/dashboard" className="dashboard-card user">
+                <h3>My Dashboard</h3>
+                <p>View your skincare overview</p>
+                <span className="card-arrow">→</span>
+              </Link>
+              
+              <Link to="/products" className="dashboard-card">
+                <h3>Shop Products</h3>
+                <p>Explore curated skincare products</p>
+                <span className="card-arrow">→</span>
+              </Link>
+              
+              <Link to="/wishlist" className="dashboard-card">
+                <h3>My Wishlist</h3>
+                <p>Save your favorite products</p>
+                <span className="card-arrow">→</span>
+              </Link>
+              
+              <Link to="/routine" className="dashboard-card">
+                <h3>My Routine</h3>
+                <p>Manage your daily skincare routine</p>
+                <span className="card-arrow">→</span>
+              </Link>
+              
+              <Link to="/timeline" className="dashboard-card">
+                <h3>Progress Timeline</h3>
+                <p>Track your skincare journey</p>
+                <span className="card-arrow">→</span>
+              </Link>
+              
+              <Link to="/tickets" className="dashboard-card">
+                <h3>Get Help</h3>
+                <p>Ask our dermatologists</p>
+                <span className="card-arrow">→</span>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+    );
   }
 
+  // Landing page for non-authenticated users
   return (
-    <div className="full-page">
-      {/* Hero Section */}
-      <div style={{
-        background: 'linear-gradient(135deg, #f8fffe 0%, #e6fffa 50%, #b2f5ea 100%)',
-        padding: '100px 20px 80px 20px',
-        textAlign: 'center',
-        minHeight: '70vh', // Make hero section larger
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center'
-      }}>
-        <h1 style={{
-          fontSize: '3.5rem',
-          fontWeight: 'bold',
-          marginBottom: '24px',
-          background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
-        }}>
-          Transform Your Skincare Journey with SkinBloom
-        </h1>
-        
-        <p style={{
-          fontSize: '1.25rem',
-          color: '#6b7280',
-          marginBottom: '48px',
-          maxWidth: '700px',
-          margin: '0 auto 48px'
-        }}>
-          Personalized skincare routines, expert guidance, and comprehensive tracking tools for healthier, glowing skin
-        </p>
-
-        <div style={{
-          display: 'flex',
-          gap: '20px',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-          marginBottom: '60px'
-        }}>
-          <button 
-            onClick={() => handleNavigation('register')}
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              color: 'white',
-              padding: '16px 32px',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
-            }}
-          >
-            Get Started Free
-          </button>
-          <button 
-            onClick={() => handleNavigation('products')}
-            style={{
-              background: 'rgba(255, 255, 255, 0.9)',
-              color: '#374151',
-              padding: '16px 32px',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              border: '2px solid #e5e7eb',
-              cursor: 'pointer'
-            }}
-          >
-            Explore Products
-          </button>
+    <div className="landing-page">
+      <div className="hero-section">
+        <div className="hero-content">
+          <h1 className="hero-title">
+            Your Journey to <span className="highlight">Healthy Skin</span> Starts Here
+          </h1>
+          <p className="hero-subtitle">
+            Get personalized skincare routines, track your progress, and connect with dermatologists
+          </p>
+          <div className="hero-actions">
+            <Link to="/register" className="btn primary large">
+              Start Your Journey
+            </Link>
+            <Link to="/login" className="btn ghost large">
+              Sign In
+            </Link>
+          </div>
         </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '30px',
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          {/* Feature Cards */}
-          <div 
-            onClick={() => handleNavigation('profile')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'transform 0.3s ease',
-              ':hover': { transform: 'translateY(-5px)' }
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>👤</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Personal Profile
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Create your skin profile with photos, skin type, age, and concerns for personalized skincare recommendations
-            </p>
-          </div>
-
-          <div 
-            onClick={() => handleNavigation('routine')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>📋</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Routine Builder
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Build AM/PM skincare routines with step-by-step guides, reminders, and product tracking
-            </p>
-          </div>
-
-          <div 
-            onClick={() => handleNavigation('products')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>🛒</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Product Search
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Search and discover skincare products with professional reviews and ingredient analysis
-            </p>
-          </div>
-
-          <div 
-            onClick={() => handleNavigation('timeline')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>📈</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Progress Timeline
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Track your skincare journey with photos, notes, and progress milestones over time
-            </p>
-          </div>
-
-          <div 
-            onClick={() => handleNavigation('tickets')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>🩺</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Professional Help
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Get consultation tickets for dermatologist advice and professional treatment recommendations
-            </p>
-          </div>
-
-          <div 
-            onClick={() => handleNavigation('feedback')}
-            style={{
-              background: 'white',
-              padding: '30px',
-              borderRadius: '20px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-              textAlign: 'center',
-              cursor: 'pointer'
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
-              width: '60px',
-              height: '60px',
-              borderRadius: '15px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px',
-              fontSize: '24px'
-            }}>❤️</div>
-            <h3 style={{fontSize: '20px', fontWeight: '600', marginBottom: '12px'}}>
-              Favourites & Reviews
-            </h3>
-            <p style={{color: '#6b7280', fontSize: '14px'}}>
-              Save and organize your favorite skincare products with detailed reviews and ratings
-            </p>
+        
+        <div className="hero-image">
+          <div className="hero-placeholder">
+            <div className="skin-icon">🌸</div>
+            <p>Beautiful Skin Awaits</p>
           </div>
         </div>
       </div>
 
-      {/* Featured Products Section */}
-      <div style={{
-        padding: '80px 20px',
-        background: 'white'
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          textAlign: 'center'
-        }}>
-          <h2 style={{
-            fontSize: '2.5rem',
-            fontWeight: '600',
-            marginBottom: '20px',
-            color: '#1f2937'
-          }}>
-            Featured Skincare Products
-          </h2>
-          <p style={{
-            color: '#6b7280',
-            fontSize: '18px',
-            marginBottom: '50px'
-          }}>
-            Discover trending products loved by our skincare community
-          </p>
-          
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '30px'
-          }}>
-            {[
-              { name: 'Axis-Y Dark Spot Serum', price: '$25.99', category: 'Serum' },
-              { name: 'The Ordinary Niacinamide', price: '$7.90', category: 'Serum' },
-              { name: 'CeraVe Hydrating Cleanser', price: '$14.99', category: 'Cleanser' },
-              { name: 'La Roche-Posay SPF60', price: '$35.99', category: 'Sunscreen' }
-            ].map((product, index) => (
-              <div 
-                key={index}
-                onClick={() => handleNavigation('products')}
-                style={{
-                  background: 'white',
-                  padding: '25px',
-                  borderRadius: '15px',
-                  textAlign: 'center',
-                  boxShadow: '0 5px 15px rgba(0,0,0,0.1)',
-                  cursor: 'pointer',
-                  border: '1px solid #f3f4f6'
-                }}
-              >
-                <div style={{
-                  background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-                  height: '150px',
-                  borderRadius: '12px',
-                  marginBottom: '15px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '40px'
-                }}>🧴</div>
-                
-                <div style={{
-                  background: '#f3f4f6',
-                  padding: '4px 10px',
-                  borderRadius: '15px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#6b7280',
-                  display: 'inline-block',
-                  marginBottom: '10px'
-                }}>
-                  {product.category}
-                </div>
-
-                <h4 style={{fontWeight: '600', marginBottom: '8px', fontSize: '16px'}}>
-                  {product.name}
-                </h4>
-                <p style={{color: '#059669', fontSize: '18px', fontWeight: 'bold'}}>
-                  {product.price}
-                </p>
-              </div>
-            ))}
+      <div className="features-section">
+        <div className="container">
+          <h2 className="section-title">Why Choose SkinBloom?</h2>
+          <div className="features-grid">
+            <div className="feature-card">
+              <div className="feature-icon">📋</div>
+              <h3>Personalized Routines</h3>
+              <p>Get custom skincare routines tailored to your skin type and concerns</p>
+            </div>
+            
+            <div className="feature-card">
+              <div className="feature-icon">📈</div>
+              <h3>Progress Tracking</h3>
+              <p>Monitor your skin improvement journey with detailed timeline and photos</p>
+            </div>
+            
+            <div className="feature-card">
+              <div className="feature-icon">👩‍⚕️</div>
+              <h3>Expert Guidance</h3>
+              <p>Connect with certified dermatologists for professional advice</p>
+            </div>
+            
+            <div className="feature-card">
+              <div className="feature-icon">🎯</div>
+              <h3>Smart Reminders</h3>
+              <p>Never miss your skincare routine with intelligent notifications</p>
+            </div>
           </div>
+        </div>
+      </div>
 
-          <button 
-            onClick={() => handleNavigation('products')}
-            style={{
-              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              color: 'white',
-              padding: '16px 32px',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              border: 'none',
-              cursor: 'pointer',
-              marginTop: '40px',
-              boxShadow: '0 10px 25px rgba(5, 150, 105, 0.3)'
-            }}
-          >
-            View All Products
-          </button>
+      <div className="cta-section">
+        <div className="container">
+          <div className="cta-content">
+            <h2>Ready to Transform Your Skin?</h2>
+            <p>Join thousands of users who have already started their skincare journey with SkinBloom</p>
+            <Link to="/register" className="btn primary large">
+              Get Started Free
+            </Link>
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

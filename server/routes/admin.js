@@ -1,11 +1,9 @@
 import express from 'express'
 import { 
-  getCategories, 
-  addCategory,
-  updateProductCategory,
-  bulkUpdateCategories,
-  getProductsByCategory,
-  getCategoryStats
+  getDashboardStats, 
+  getAllUsers,
+  updateUserRole,
+  deleteUser
 } from '../controllers/admin.js'
 import { authRequired } from '../middleware/auth.js'
 
@@ -23,14 +21,12 @@ const requireAdmin = (req, res, next) => {
 router.use(authRequired)
 router.use(requireAdmin)
 
-// Category management routes
-router.get('/categories', getCategories)
-router.post('/categories', addCategory)
-router.get('/categories/stats', getCategoryStats)
-router.get('/categories/:category/products', getProductsByCategory)
+// Dashboard and statistics
+router.get('/dashboard/stats', getDashboardStats)
 
-// Product category management
-router.put('/products/category', updateProductCategory)
-router.put('/products/categories/bulk', bulkUpdateCategories)
+// User management routes
+router.get('/users', getAllUsers)
+router.put('/users/role', updateUserRole)
+router.delete('/users/:userId', deleteUser)
 
 export default router

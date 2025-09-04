@@ -1,95 +1,38 @@
-import Product from '../models/Product.js'
+import User from '../models/User.js'
+import Ticket from '../models/Ticket.js'
 
-// Get all available categories
-export async function getCategories(req, res) {
+// Get admin dashboard statistics
+export async function getDashboardStats(req, res) {
   try {
-    // Get categories from schema enum
-    const categoryEnum = Product.schema.paths.category.enumValues
-    
-    // Get categories actually used in database with counts
-    const categoryCounts = await Product.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ])
+    const totalUsers = await User.countDocuments({ role: 'user' })
+    const totalDermatologists = await User.countDocuments({ role: 'dermatologist' })
+    const totalAdmins = await User.countDocuments({ role: 'admin' })
+    const totalTickets = await Ticket.countDocuments()
+    const pendingTickets = await Ticket.countDocuments({ status: 'pending' })
+    const resolvedTickets = await Ticket.countDocuments({ status: 'resolved' })
 
-    const categoriesWithCounts = categoryEnum.map(category => {
-      const found = categoryCounts.find(item => item._id === category)
-      return {
-        name: category,
-        count: found ? found.count : 0
-      }
+    // Recent user registrations (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const recentUsers = await User.countDocuments({ 
+      createdAt: { $gte: thirtyDaysAgo },
+      role: 'user'
     })
 
     res.json({
-      categories: categoriesWithCounts,
-      total: categoryEnum.length
-    })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-}
-
-// Add new category (Admin only)
-export async function addCategory(req, res) {
-  try {
-    const { categoryName } = req.body
-
-    if (!categoryName || categoryName.trim() === '') {
-      return res.status(400).json({ error: 'Category name is required' })
-    }
-
-    const formattedName = categoryName.trim()
-    
-    // Get current enum values
-    const currentEnum = Product.schema.paths.category.enumValues
-    
-    if (currentEnum.includes(formattedName)) {
-      return res.status(400).json({ error: 'Category already exists' })
-    }
-
-    // Note: In production, you would need to modify the schema dynamically
-    // For now, we'll return instructions for manual update
-    res.json({
-      message: 'To add a new category, update the Product schema enum in models/Product.js',
-      instruction: `Add '${formattedName}' to the category enum array`,
-      currentCategories: currentEnum
-    })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-}
-
-// Update product category (Admin only)
-export async function updateProductCategory(req, res) {
-  try {
-    const { productId, newCategory } = req.body
-
-    // Validate category
-    const validCategories = Product.schema.paths.category.enumValues
-    if (!validCategories.includes(newCategory)) {
-      return res.status(400).json({ 
-        error: 'Invalid category',
-        validCategories
-      })
-    }
-
-    const product = await Product.findByIdAndUpdate(
-      productId,
-      { category: newCategory },
-      { new: true }
-    )
-
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found' })
-    }
-
-    res.json({
-      message: 'Product category updated',
-      product: {
-        _id: product._id,
-        name: product.name,
-        category: product.category
+      users: {
+        total: totalUsers,
+        recent: recentUsers,
+        dermatologists: totalDermatologists,
+        admins: totalAdmins
+      },
+      tickets: {
+        total: totalTickets,
+        pending: pendingTickets,
+        resolved: resolvedTickets
+      },
+      systemHealth: {
+        status: 'operational',
+        uptime: process.uptime()
       }
     })
   } catch (error) {
@@ -97,93 +40,37 @@ export async function updateProductCategory(req, res) {
   }
 }
 
-// Bulk update categories (Admin only)
-export async function bulkUpdateCategories(req, res) {
+// Get all users for admin management
+export async function getAllUsers(req, res) {
   try {
-    const { updates } = req.body // Array of { productId, newCategory }
-
-    if (!Array.isArray(updates) || updates.length === 0) {
-      return res.status(400).json({ error: 'Updates array is required' })
-    }
-
-    const validCategories = Product.schema.paths.category.enumValues
-    const results = []
-
-    for (const update of updates) {
-      try {
-        const { productId, newCategory } = update
-
-        if (!validCategories.includes(newCategory)) {
-          results.push({
-            productId,
-            success: false,
-            error: 'Invalid category'
-          })
-          continue
-        }
-
-        const product = await Product.findByIdAndUpdate(
-          productId,
-          { category: newCategory },
-          { new: true }
-        )
-
-        if (!product) {
-          results.push({
-            productId,
-            success: false,
-            error: 'Product not found'
-          })
-        } else {
-          results.push({
-            productId,
-            success: true,
-            oldCategory: update.oldCategory,
-            newCategory
-          })
-        }
-      } catch (error) {
-        results.push({
-          productId: update.productId,
-          success: false,
-          error: error.message
-        })
-      }
-    }
-
-    const successCount = results.filter(r => r.success).length
-    const failCount = results.filter(r => !r.success).length
-
-    res.json({
-      message: `Bulk update completed: ${successCount} success, ${failCount} failed`,
-      results,
-      summary: { successCount, failCount }
-    })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-}
-
-// Get products by category for admin management
-export async function getProductsByCategory(req, res) {
-  try {
-    const { category } = req.params
-    const { page = 1, limit = 50 } = req.query
-
+    const { page = 1, limit = 20, role, search } = req.query
     const skip = (page - 1) * limit
 
-    const products = await Product.find({ category })
-      .select('name brand category price isActive featuredProduct createdAt')
+    let query = {}
+    
+    if (role && role !== 'all') {
+      query.role = role
+    }
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ]
+    }
+
+    const users = await User.find(query)
+      .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
 
-    const total = await Product.countDocuments({ category })
+    const total = await User.countDocuments(query)
 
     res.json({
-      products,
+      users,
       pagination: {
-        current: page,
+        current: parseInt(page),
         pages: Math.ceil(total / limit),
         total
       }
@@ -193,38 +80,60 @@ export async function getProductsByCategory(req, res) {
   }
 }
 
-// Get category statistics
-export async function getCategoryStats(req, res) {
+// Update user role (Admin only)
+export async function updateUserRole(req, res) {
   try {
-    const stats = await Product.aggregate([
-      {
-        $group: {
-          _id: '$category',
-          count: { $sum: 1 },
-          avgPrice: { $avg: '$price' },
-          avgRating: { $avg: '$rating' },
-          activeCount: {
-            $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] }
-          },
-          featuredCount: {
-            $sum: { $cond: [{ $eq: ['$featuredProduct', true] }, 1, 0] }
-          }
-        }
-      },
-      {
-        $sort: { count: -1 }
-      }
-    ])
+    const { userId, newRole } = req.body
 
-    const totalProducts = await Product.countDocuments()
-    const totalCategories = stats.length
+    const validRoles = ['user', 'dermatologist', 'admin']
+    if (!validRoles.includes(newRole)) {
+      return res.status(400).json({ 
+        error: 'Invalid role',
+        validRoles
+      })
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role: newRole },
+      { new: true }
+    ).select('-password')
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
 
     res.json({
-      categoryStats: stats,
-      summary: {
-        totalProducts,
-        totalCategories,
-        avgProductsPerCategory: Math.round(totalProducts / totalCategories)
+      message: 'User role updated',
+      user
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+// Delete user (Admin only)
+export async function deleteUser(req, res) {
+  try {
+    const { userId } = req.params
+
+    // Prevent admin from deleting themselves
+    if (userId === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' })
+    }
+
+    const user = await User.findByIdAndDelete(userId)
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({
+      message: 'User deleted successfully',
+      deletedUser: {
+        id: user._id,
+        name: user.name,
+        email: user.email
       }
     })
   } catch (error) {

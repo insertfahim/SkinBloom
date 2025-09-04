@@ -9,17 +9,15 @@ import mongoose from 'mongoose'
 import authRoutes from './routes/auth.js'
 import profileRoutes from './routes/profile.js'
 import routineRoutes from './routes/routine.js'
-import productRoutes from './routes/product.js'
 import feedbackRoutes from './routes/feedback.js'
 import timelineRoutes from './routes/timeline.js'
 import ticketRoutes from './routes/ticket.js'
 import reminderRoutes from './routes/reminder.js'
 import uploadRoutes from './routes/upload.js'
 import paymentRoutes from './routes/payments.js'
+import productRoutes from './routes/product.js'
 import wishlistRoutes from './routes/wishlist.js'
-import comparisonRoutes from './routes/comparison.js'
-import priceTrackingRoutes from './routes/priceTracking.js'
-import adminRoutes from './routes/admin.js'
+import cartRoutes from './routes/cart.js'
 
 
 
@@ -35,7 +33,7 @@ if (!JWT_SECRET) {
 
 const app = express()
 app.use(cors({
-  origin: [FRONTEND_URL, 'http://localhost:5173'],
+  origin: [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
   exposedHeaders: ['Authorization']
 }))
@@ -64,9 +62,9 @@ mongoose.connect(MONGO_URI).then(() => {
 // health
 app.get('/', (req, res) => res.json({ ok:true, service:'Skinbloom API' }))
 
-// Public routes first (so shop can load without login)
-app.use('/api/products', productRoutes)     // GET public, POST protected (admin)
+// Public routes first
 app.use('/api/auth', authRoutes)
+app.use('/api/products', productRoutes) // Public product access
 
 // User protected routes (require authentication)
 app.use('/api/profile', profileRoutes)
@@ -78,6 +76,4 @@ app.use('/api/reminder', reminderRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/wishlist', wishlistRoutes)
-app.use('/api/comparison', comparisonRoutes)
-app.use('/api/price-tracking', priceTrackingRoutes)
-app.use('/api/admin', adminRoutes)
+app.use('/api/cart', cartRoutes)

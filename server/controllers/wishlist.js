@@ -2,226 +2,161 @@ import Wishlist from '../models/Wishlist.js'
 import Product from '../models/Product.js'
 
 // Get user's wishlist
-export async function getUserWishlist(req, res) {
+export async function getWishlist(req, res) {
   try {
-    const wishlist = await Wishlist.findOne({ user: req.user.id })
+    const wishlist = await Wishlist.findOne({ userId: req.user.id })
       .populate('products.productId')
+      .lean()
     
     if (!wishlist) {
-      return res.json({ 
-        products: [], 
-        total: 0,
-        wishlist: { name: 'My Wishlist', isPublic: false }
-      })
+      return res.json({ products: [] })
     }
     
-    res.json({
-      products: wishlist.products,
-      total: wishlist.products.length,
-      wishlist: {
-        _id: wishlist._id,
-        name: wishlist.name,
-        description: wishlist.description,
-        isPublic: wishlist.isPublic,
-        createdAt: wishlist.createdAt,
-        updatedAt: wishlist.updatedAt
-      }
-    })
+    res.json(wishlist)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error fetching wishlist:', error)
+    res.status(500).json({ error: 'Failed to fetch wishlist' })
   }
 }
 
 // Add product to wishlist
 export async function addToWishlist(req, res) {
   try {
-    const { 
-      productId, 
-      externalProductId, 
-      productSource = 'local',
-      productData,
-      enablePriceAlert = false,
-      targetPrice
-    } = req.body
-
-    let wishlist = await Wishlist.findOne({ user: req.user.id })
+    const { productId, notes, priority = 'medium' } = req.body
+    
+    // Verify product exists
+    const product = await Product.findById(productId)
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' })
+    }
+    
+    // Find or create wishlist
+    let wishlist = await Wishlist.findOne({ userId: req.user.id })
     
     if (!wishlist) {
-      wishlist = new Wishlist({
-        user: req.user.id,
-        products: []
+      wishlist = new Wishlist({ 
+        userId: req.user.id, 
+        products: [] 
       })
     }
-
-    // Check if product already exists in wishlist
-    const existingIndex = wishlist.products.findIndex(item => {
-      if (productSource === 'local') {
-        return item.productId?.toString() === productId
-      } else {
-        return item.externalProductId === externalProductId && item.productSource === productSource
-      }
-    })
-
-    if (existingIndex !== -1) {
+    
+    // Check if product already in wishlist
+    const existingIndex = wishlist.products.findIndex(
+      item => item.productId.toString() === productId
+    )
+    
+    if (existingIndex >= 0) {
       return res.status(400).json({ error: 'Product already in wishlist' })
     }
-
-    // Prepare product data
-    let finalProductData = productData
     
-    // If it's a local product, get data from database
-    if (productSource === 'local' && productId) {
-      const dbProduct = await Product.findById(productId)
-      if (!dbProduct) {
-        return res.status(404).json({ error: 'Product not found' })
-      }
-      finalProductData = {
-        name: dbProduct.name,
-        brand: dbProduct.brand,
-        category: dbProduct.category,
-        price: dbProduct.price,
-        image: dbProduct.image
-      }
-    }
-
-    // Add to wishlist
-    const newWishlistItem = {
-      productId: productSource === 'local' ? productId : undefined,
-      externalProductId: productSource !== 'local' ? externalProductId : undefined,
-      productSource,
-      productData: finalProductData,
+    // Add product to wishlist
+    wishlist.products.push({
+      productId,
+      notes,
+      priority,
       priceAlert: {
-        enabled: enablePriceAlert,
-        targetPrice: targetPrice,
-        currentPrice: finalProductData?.price
+        enabled: false,
+        originalPrice: product.price
       }
-    }
-
-    wishlist.products.push(newWishlistItem)
-    await wishlist.save()
-
-    res.json({ 
-      message: 'Product added to wishlist',
-      wishlistItem: newWishlistItem
     })
+    
+    await wishlist.save()
+    
+    // Return updated wishlist with populated products
+    const updatedWishlist = await Wishlist.findById(wishlist._id)
+      .populate('products.productId')
+      .lean()
+    
+    res.json(updatedWishlist)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error adding to wishlist:', error)
+    res.status(500).json({ error: 'Failed to add to wishlist' })
   }
 }
 
 // Remove product from wishlist
 export async function removeFromWishlist(req, res) {
   try {
-    const { productId, externalProductId, productSource } = req.body
-
-    const wishlist = await Wishlist.findOne({ user: req.user.id })
+    const { productId } = req.params
+    
+    const wishlist = await Wishlist.findOne({ userId: req.user.id })
     if (!wishlist) {
       return res.status(404).json({ error: 'Wishlist not found' })
     }
-
-    // Find and remove the product
-    const initialLength = wishlist.products.length
-    wishlist.products = wishlist.products.filter(item => {
-      if (productSource === 'local') {
-        return item.productId?.toString() !== productId
-      } else {
-        return !(item.externalProductId === externalProductId && item.productSource === productSource)
-      }
-    })
-
-    if (wishlist.products.length === initialLength) {
-      return res.status(404).json({ error: 'Product not found in wishlist' })
-    }
-
+    
+    wishlist.products = wishlist.products.filter(
+      item => item.productId.toString() !== productId
+    )
+    
     await wishlist.save()
-    res.json({ message: 'Product removed from wishlist' })
+    
+    // Return updated wishlist with populated products
+    const updatedWishlist = await Wishlist.findById(wishlist._id)
+      .populate('products.productId')
+      .lean()
+    
+    res.json(updatedWishlist)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error removing from wishlist:', error)
+    res.status(500).json({ error: 'Failed to remove from wishlist' })
   }
 }
 
-// Update wishlist settings
-export async function updateWishlistSettings(req, res) {
+// Update wishlist item (notes, priority, price alerts)
+export async function updateWishlistItem(req, res) {
   try {
-    const { name, description, isPublic } = req.body
-
-    let wishlist = await Wishlist.findOne({ user: req.user.id })
-    if (!wishlist) {
-      wishlist = new Wishlist({ user: req.user.id })
-    }
-
-    if (name !== undefined) wishlist.name = name
-    if (description !== undefined) wishlist.description = description
-    if (isPublic !== undefined) wishlist.isPublic = isPublic
-
-    await wishlist.save()
-    res.json({ message: 'Wishlist updated', wishlist })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-}
-
-// Update price alert for wishlist item
-export async function updatePriceAlert(req, res) {
-  try {
-    const { productId, externalProductId, productSource, enabled, targetPrice } = req.body
-
-    const wishlist = await Wishlist.findOne({ user: req.user.id })
+    const { productId } = req.params
+    const { notes, priority, priceAlert } = req.body
+    
+    const wishlist = await Wishlist.findOne({ userId: req.user.id })
     if (!wishlist) {
       return res.status(404).json({ error: 'Wishlist not found' })
     }
-
-    // Find the product in wishlist
-    const productIndex = wishlist.products.findIndex(item => {
-      if (productSource === 'local') {
-        return item.productId?.toString() === productId
-      } else {
-        return item.externalProductId === externalProductId && item.productSource === productSource
-      }
-    })
-
-    if (productIndex === -1) {
-      return res.status(404).json({ error: 'Product not found in wishlist' })
+    
+    const itemIndex = wishlist.products.findIndex(
+      item => item.productId.toString() === productId
+    )
+    
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: 'Product not in wishlist' })
     }
-
-    // Update price alert
-    wishlist.products[productIndex].priceAlert = {
-      enabled: enabled !== undefined ? enabled : wishlist.products[productIndex].priceAlert.enabled,
-      targetPrice: targetPrice !== undefined ? targetPrice : wishlist.products[productIndex].priceAlert.targetPrice,
-      currentPrice: wishlist.products[productIndex].productData.price
+    
+    // Update the item
+    const item = wishlist.products[itemIndex]
+    if (notes !== undefined) item.notes = notes
+    if (priority !== undefined) item.priority = priority
+    if (priceAlert !== undefined) {
+      item.priceAlert = { ...item.priceAlert, ...priceAlert }
     }
-
+    
     await wishlist.save()
-    res.json({ message: 'Price alert updated' })
+    
+    // Return updated wishlist with populated products
+    const updatedWishlist = await Wishlist.findById(wishlist._id)
+      .populate('products.productId')
+      .lean()
+    
+    res.json(updatedWishlist)
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error updating wishlist item:', error)
+    res.status(500).json({ error: 'Failed to update wishlist item' })
   }
 }
 
-// Get public wishlist by user ID
-export async function getPublicWishlist(req, res) {
+// Clear entire wishlist
+export async function clearWishlist(req, res) {
   try {
-    const { userId } = req.params
-    
-    const wishlist = await Wishlist.findOne({ 
-      user: userId, 
-      isPublic: true 
-    }).populate('products.productId')
-    
+    const wishlist = await Wishlist.findOne({ userId: req.user.id })
     if (!wishlist) {
-      return res.status(404).json({ error: 'Public wishlist not found' })
+      return res.status(404).json({ error: 'Wishlist not found' })
     }
     
-    res.json({
-      products: wishlist.products,
-      total: wishlist.products.length,
-      wishlist: {
-        name: wishlist.name,
-        description: wishlist.description,
-        createdAt: wishlist.createdAt
-      }
-    })
+    wishlist.products = []
+    await wishlist.save()
+    
+    res.json({ message: 'Wishlist cleared successfully', products: [] })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error('Error clearing wishlist:', error)
+    res.status(500).json({ error: 'Failed to clear wishlist' })
   }
 }

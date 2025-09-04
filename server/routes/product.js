@@ -1,48 +1,30 @@
-// import express from "express";
-// import fetch from "node-fetch";
-
-// const router = express.Router();
-// const BASE_URL = "https://skincare-api.herokuapp.com";
-
-// router.get("/", async (req, res) => {
-//     try {
-//         const response = await fetch(`${BASE_URL}/products`);
-//         const products = await response.json();
-//         res.json(products);
-//     } catch (err) {
-//         res.status(500).json({ error: "Failed to fetch skincare products" });
-//     }
-//     });
-
-//     router.get("/:id", async (req, res) => {
-//     try {
-//         const response = await fetch(`${BASE_URL}/products/${req.params.id}`);
-//         const product = await response.json();
-//         res.json(product);
-//     } catch (err) {
-//         res.status(500).json({ error: "Error fetching product details" });
-//     }
-// });
-
-// export default router;
-
 import { Router } from 'express'
 import { authRequired, requireRole } from '../middleware/auth.js'
-import { createProduct, getProduct, listProducts, fetchExternalProducts, importExternalProducts } from '../controllers/product.js'
+import { 
+  createProduct, 
+  getProduct, 
+  listProducts, 
+  updateProduct, 
+  deleteProduct,
+  getProductsByCategory,
+  searchProducts,
+  getFeaturedProducts,
+  getPopularProducts
+} from '../controllers/product.js'
 
 const r = Router()
 
-// Public listing (homepage/shop needs this)
-r.get('/', listProducts)
-
-// Get single product by ID (public)
-r.get('/:id', getProduct)
-
-// External products endpoints
-r.get('/external', fetchExternalProducts)
+// Public endpoints - no auth required
+r.get('/', listProducts) // Get all products with filtering
+r.get('/featured', getFeaturedProducts) // Get featured products
+r.get('/popular', getPopularProducts) // Get popular products
+r.get('/search', searchProducts) // Search products
+r.get('/category/:category', getProductsByCategory) // Products by category
+r.get('/:id', getProduct) // Get single product by ID
 
 // Admin-only endpoints
 r.post('/', authRequired, requireRole('admin'), createProduct)
-r.post('/import', authRequired, requireRole('admin'), importExternalProducts)
+r.put('/:id', authRequired, requireRole('admin'), updateProduct)
+r.delete('/:id', authRequired, requireRole('admin'), deleteProduct)
 
 export default r

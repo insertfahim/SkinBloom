@@ -14,16 +14,24 @@ export default function Dashboard(){
     // Load featured products
     (async()=>{
       try{
-        const { data } = await API.get('/products')
-        setFeatured((data?.products||[]).slice(0,8))
+        const { data } = await API.get('/products/featured')
+        setFeatured((data||[]).slice(0,8))
       }catch(e){ 
-        // Use fallback data if API fails
-        setFeatured([
-          { _id: '1', name: 'Axis-Y Dark Spot Correcting Glow Serum', brand: 'Axis-Y', price: 25.99, category: 'Serum' },
-          { _id: '2', name: 'The Ordinary Niacinamide 10% + Zinc 1%', brand: 'The Ordinary', price: 7.90, category: 'Serum' },
-          { _id: '3', name: 'CeraVe Hydrating Cleanser', brand: 'CeraVe', price: 14.99, category: 'Cleanser' },
-          { _id: '4', name: 'La Roche-Posay Anthelios Ultra-Light Fluid SPF60', brand: 'La Roche-Posay', price: 35.99, category: 'Sunscreen' }
-        ])
+        console.log('Featured products API error:', e)
+        // Fallback to regular products
+        try {
+          const { data } = await API.get('/products?featured=true&limit=8')
+          setFeatured((data?.products||[]).slice(0,8))
+        } catch (e2) {
+          console.log('Products API error:', e2)
+          // Use fallback data if API fails
+          setFeatured([
+            { _id: '1', name: 'Axis-Y Dark Spot Correcting Glow Serum', brand: 'Axis-Y', price: 25.99, category: 'Serum' },
+            { _id: '2', name: 'The Ordinary Niacinamide 10% + Zinc 1%', brand: 'The Ordinary', price: 7.90, category: 'Serum' },
+            { _id: '3', name: 'CeraVe Hydrating Cleanser', brand: 'CeraVe', price: 14.99, category: 'Cleanser' },
+            { _id: '4', name: 'La Roche-Posay Anthelios Ultra-Light Fluid SPF60', brand: 'La Roche-Posay', price: 35.99, category: 'Sunscreen' }
+          ])
+        }
       }
     })() 
   },[])
