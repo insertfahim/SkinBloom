@@ -6,6 +6,7 @@ export default function DermatologistDashboard() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [consultation, setConsultation] = useState({
     diagnosis: '',
     treatmentPlan: '',
@@ -14,6 +15,7 @@ export default function DermatologistDashboard() {
   const [availableProducts, setAvailableProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('pending'); // pending, assigned, completed
 
   useEffect(() => {
@@ -24,7 +26,8 @@ export default function DermatologistDashboard() {
   const loadTickets = async () => {
     try {
       const { data } = await API.get('/tickets/dermatologist/tickets');
-      setTickets(data || []);
+      const list = Array.isArray(data) ? data : (data.tickets || []);
+      setTickets(list);
     } catch (error) {
       console.error('Error loading tickets:', error);
     } finally {
@@ -104,6 +107,19 @@ export default function DermatologistDashboard() {
     }));
   };
 
+  const loadUserProfile = async (userId) => {
+    setLoadingProfile(true);
+    try {
+      const { data } = await API.get(`/profile/user/${userId}`);
+      setSelectedUserProfile(data);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      alert('Failed to load user profile');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   const getFilteredTickets = () => {
     switch (activeTab) {
       case 'pending':
@@ -111,7 +127,7 @@ export default function DermatologistDashboard() {
       case 'assigned':
         return tickets.filter(t => ['assigned', 'in-consultation'].includes(t.status));
       case 'completed':
-        return tickets.filter(t => ['consultation-provided', 'resolved'].includes(t.status));
+  return tickets.filter(t => ['consultation-provided', 'resolved', 'paid'].includes(t.status));
       default:
         return tickets;
     }
@@ -123,7 +139,8 @@ export default function DermatologistDashboard() {
       case 'assigned': return '#3b82f6';
       case 'in-consultation': return '#8b5cf6';
       case 'consultation-provided': return '#10b981';
-      case 'resolved': return '#059669';
+  case 'resolved': return '#059669';
+  case 'paid': return '#064e3b';
       default: return '#6b7280';
     }
   };
@@ -237,7 +254,7 @@ export default function DermatologistDashboard() {
         {[
           { key: 'pending', label: 'Pending Cases', count: tickets.filter(t => t.status === 'pending').length },
           { key: 'assigned', label: 'My Cases', count: tickets.filter(t => ['assigned', 'in-consultation'].includes(t.status)).length },
-          { key: 'completed', label: 'Completed', count: tickets.filter(t => ['consultation-provided', 'resolved'].includes(t.status)).length }
+          { key: 'completed', label: 'Completed', count: tickets.filter(t => ['consultation-provided', 'resolved', 'paid'].includes(t.status)).length }
         ].map(tab => (
           <button
             key={tab.key}
@@ -317,14 +334,14 @@ export default function DermatologistDashboard() {
                       {ticket.status}
                     </span>
                     <span style={{
-                      background: `${getUrgencyColor(ticket.urgency)}20`,
-                      color: getUrgencyColor(ticket.urgency),
+                      background: `${getUrgencyColor(ticket.priority || 'medium')}20`,
+                      color: getUrgencyColor(ticket.priority || 'medium'),
                       padding: '2px 8px',
                       borderRadius: '12px',
                       fontSize: '11px',
                       fontWeight: '600'
                     }}>
-                      {ticket.urgency}
+                      {ticket.priority || 'medium'}
                     </span>
                   </div>
                   <span style={{ fontSize: '12px', color: '#6b7280' }}>
@@ -342,7 +359,7 @@ export default function DermatologistDashboard() {
                   }}>
                     Patient: {ticket.user?.name || 'Anonymous'}
                   </h4>
-                  {ticket.skinType && (
+                  {ticket.user?.profile?.age && (
                     <span style={{
                       background: '#f0f9ff',
                       color: '#0369a1',
@@ -350,7 +367,19 @@ export default function DermatologistDashboard() {
                       borderRadius: '4px',
                       fontSize: '11px'
                     }}>
-                      {ticket.skinType} Skin
+                      Age: {ticket.user.profile.age}
+                    </span>
+                  )}
+                  {ticket.user?.profile?.gender && (
+                    <span style={{
+                      background: '#fef3c7',
+                      color: '#92400e',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      marginLeft: '6px'
+                    }}>
+                      {ticket.user.profile.gender}
                     </span>
                   )}
                 </div>
@@ -413,7 +442,7 @@ export default function DermatologistDashboard() {
                     </button>
                   )}
 
-                  {ticket.status === 'consultation-provided' && ticket.paymentStatus === 'completed' && (
+                  {ticket.status === 'consultation-provided' && ticket.paymentStatus === 'paid' && (
                     <button
                       onClick={() => markAsResolved(ticket._id)}
                       style={{
@@ -444,6 +473,24 @@ export default function DermatologistDashboard() {
                   >
                     View Details
                   </button>
+                  
+                  {ticket.user?._id && (
+                    <button
+                      onClick={() => loadUserProfile(ticket.user._id)}
+                      style={{
+                        background: '#8b5cf6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        marginLeft: '4px'
+                      }}
+                    >
+                      View Profile
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -514,10 +561,13 @@ export default function DermatologistDashboard() {
                   <strong>Name:</strong> {selectedTicket.user?.name || 'Anonymous'}
                 </p>
                 <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
-                  <strong>Skin Type:</strong> {selectedTicket.skinType || 'Not specified'}
+                  <strong>Age:</strong> {selectedTicket.user?.profile?.age || 'N/A'}
+                </p>
+                <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>
+                  <strong>Gender:</strong> {selectedTicket.user?.profile?.gender || 'N/A'}
                 </p>
                 <p style={{ margin: '0', fontSize: '14px' }}>
-                  <strong>Urgency:</strong> {selectedTicket.urgency}
+                  <strong>Payment:</strong> {selectedTicket.paymentStatus}
                 </p>
               </div>
             </div>
@@ -793,6 +843,188 @@ export default function DermatologistDashboard() {
           </div>
         )}
       </div>
+
+      {/* User Profile Modal */}
+      {selectedUserProfile && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px'
+            }}>
+              <h2 style={{
+                fontSize: '1.5rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                Patient Profile
+              </h2>
+              <button
+                onClick={() => setSelectedUserProfile(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingProfile ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <p>Loading profile...</p>
+              </div>
+            ) : (
+              <>
+                {/* User Basic Info */}
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                    Basic Information
+                  </h3>
+                  <div style={{
+                    background: '#f9fafb',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    border: '1px solid #f3f4f6'
+                  }}>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>Name:</strong> {selectedUserProfile.user?.name}
+                    </p>
+                    <p style={{ margin: '0 0 8px 0' }}>
+                      <strong>Email:</strong> {selectedUserProfile.user?.email}
+                    </p>
+                    <p style={{ margin: '0' }}>
+                      <strong>Member Since:</strong> {new Date(selectedUserProfile.user?.memberSince).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Profile Picture */}
+                {selectedUserProfile.profile?.photo && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                      Profile Picture
+                    </h3>
+                    <img
+                      src={`http://localhost:5000${selectedUserProfile.profile.photo}`}
+                      alt="Profile"
+                      style={{
+                        width: '120px',
+                        height: '120px',
+                        objectFit: 'cover',
+                        borderRadius: '50%',
+                        border: '3px solid #f3f4f6'
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Health Profile */}
+                {selectedUserProfile.profile && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                      Health Profile
+                    </h3>
+                    <div style={{
+                      background: '#f9fafb',
+                      padding: '16px',
+                      borderRadius: '8px',
+                      border: '1px solid #f3f4f6'
+                    }}>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Age:</strong> {selectedUserProfile.profile.age || 'Not specified'}
+                      </p>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Gender:</strong> {selectedUserProfile.profile.gender || 'Not specified'}
+                      </p>
+                      <p style={{ margin: '0 0 8px 0' }}>
+                        <strong>Skin Type:</strong> {selectedUserProfile.profile.skinType || 'Not specified'}
+                      </p>
+                      {selectedUserProfile.profile.concerns?.length > 0 && (
+                        <p style={{ margin: '0 0 8px 0' }}>
+                          <strong>Concerns:</strong> {selectedUserProfile.profile.concerns.join(', ')}
+                        </p>
+                      )}
+                      {selectedUserProfile.profile.allergies?.length > 0 && (
+                        <p style={{ margin: '0 0 8px 0' }}>
+                          <strong>Allergies:</strong> {selectedUserProfile.profile.allergies.join(', ')}
+                        </p>
+                      )}
+                      {selectedUserProfile.profile.notes && (
+                        <p style={{ margin: '0' }}>
+                          <strong>Notes:</strong> {selectedUserProfile.profile.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Consultation Photos */}
+                {selectedUserProfile.profile?.consultationPhotos?.length > 0 && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
+                      Previous Consultation Photos
+                    </h3>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                      gap: '12px'
+                    }}>
+                      {selectedUserProfile.profile.consultationPhotos.map((photo, index) => (
+                        <div key={index} style={{
+                          border: '1px solid #f3f4f6',
+                          borderRadius: '8px',
+                          overflow: 'hidden'
+                        }}>
+                          <img
+                            src={`http://localhost:5000${photo.url}`}
+                            alt={`Consultation ${index + 1}`}
+                            style={{
+                              width: '100%',
+                              height: '120px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                          {photo.concerns && (
+                            <div style={{ padding: '8px', fontSize: '11px', color: '#6b7280' }}>
+                              {photo.concerns.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
