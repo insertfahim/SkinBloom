@@ -9,21 +9,41 @@ const router = express.Router();
 // Profile photo upload
 router.post('/profile-photo', authRequired, upload.single('photo'), handleUploadError, (req, res) => {
     try {
+        console.log('Profile photo upload request received')
+        console.log('User:', req.user)
+        console.log('File:', req.file)
+        
         if (!req.file) {
+            console.log('No file in request')
             return res.status(400).json({ message: 'No file uploaded' });
         }
+
+        console.log('File details:', {
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            destination: req.file.destination,
+            path: req.file.path
+        })
 
         // Generate the public URL for the uploaded file (including the profiles subdirectory)
         const baseUrl = `${req.protocol}://${req.get('host')}`;
         const photoUrl = `${baseUrl}/uploads/profiles/${req.file.filename}`;
 
-        res.json({
+        console.log('Generated photo URL:', photoUrl)
+
+        const response = {
             message: 'Photo uploaded successfully',
             photoUrl: photoUrl,
             filename: req.file.filename
-        });
+        }
+
+        console.log('Sending response:', response)
+        res.json(response);
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Profile photo upload error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({ message: 'Upload failed', error: error.message });
     }
 });
@@ -31,20 +51,40 @@ router.post('/profile-photo', authRequired, upload.single('photo'), handleUpload
 // Skin photo upload (for analysis)
 router.post('/skin-photo', authRequired, upload.single('photo'), handleUploadError, (req, res) => {
     try {
+        console.log('Skin photo upload request received')
+        console.log('User:', req.user)
+        console.log('File:', req.file)
+        
         if (!req.file) {
+            console.log('No file in request')
             return res.status(400).json({ message: 'No file uploaded' });
         }
+
+        console.log('File details:', {
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            destination: req.file.destination,
+            path: req.file.path
+        })
 
         const baseUrl = `${req.protocol}://${req.get('host')}`;
         const photoUrl = `${baseUrl}/uploads/consultation/${req.file.filename}`;
 
-        res.json({
+        console.log('Generated photo URL:', photoUrl)
+
+        const response = {
             message: 'Consultation photo uploaded successfully',
             photoUrl: photoUrl,
             filename: req.file.filename
-        });
+        }
+
+        console.log('Sending response:', response)
+        res.json(response);
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Skin photo upload error:', error);
+        console.error('Error stack:', error.stack);
         res.status(500).json({ message: 'Upload failed', error: error.message });
     }
 });

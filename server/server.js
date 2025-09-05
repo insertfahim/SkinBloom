@@ -18,6 +18,7 @@ import paymentRoutes from './routes/payments.js'
 import productRoutes from './routes/product.js'
 import wishlistRoutes from './routes/wishlist.js'
 import cartRoutes from './routes/cart.js'
+import notificationRoutes from './routes/notification.js'
 
 
 
@@ -35,7 +36,8 @@ const app = express()
 app.use(cors({
   origin: [FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
-  exposedHeaders: ['Authorization']
+  exposedHeaders: ['Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 app.use(express.json({ limit: '2mb' }))
 app.use(morgan('dev'))
@@ -77,3 +79,4 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/cart', cartRoutes)
+app.use('/api/notifications', notificationRoutes)

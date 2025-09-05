@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 function Cart() {
+  const navigate = useNavigate()
   const [cart, setCart] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -135,7 +136,7 @@ function Cart() {
     )
   }
 
-  if (!cart || cart.items.length === 0) {
+  if (!cart || !cart.items || cart.items.length === 0) {
     return (
       <div style={{
         maxWidth: '800px',
@@ -168,8 +169,6 @@ function Cart() {
               fontWeight: '600',
               transition: 'background 0.2s'
             }}
-            onMouseEnter={(e) => e.target.style.background = '#2c5aa0'}
-            onMouseLeave={(e) => e.target.style.background = '#3182ce'}
           >
             Continue Shopping
           </Link>
@@ -447,6 +446,7 @@ function Cart() {
           </div>
 
           <button
+            onClick={() => navigate('/checkout')}
             style={{
               width: '100%',
               padding: '16px',

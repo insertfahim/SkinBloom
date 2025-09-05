@@ -11,7 +11,6 @@ export default function Profile() {
     allergies: [],
     concerns: [],
     skinGoals: [],
-    currentProducts: [],
     dermatologistRecommended: false,
     notes: '',
     photo: '',
@@ -33,12 +32,6 @@ export default function Profile() {
 
   // New states for adding items
   const [newAllergy, setNewAllergy] = useState('')
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    brand: '',
-    type: '',
-    frequency: ''
-  })
 
   // Options
   const skinTypes = [
@@ -57,11 +50,6 @@ export default function Profile() {
   const goalOptions = [
     'clear-skin', 'anti-aging', 'hydration', 'brightening', 
     'oil-control', 'sensitive-care'
-  ]
-
-  const productTypes = [
-    'cleanser', 'toner', 'serum', 'moisturizer', 'sunscreen', 
-    'exfoliant', 'mask', 'spot-treatment', 'oil', 'mist'
   ]
 
   // Load profile on mount
@@ -84,7 +72,6 @@ export default function Profile() {
           allergies: Array.isArray(profile.allergies) ? profile.allergies : [],
           concerns: Array.isArray(profile.concerns) ? profile.concerns : [],
           skinGoals: Array.isArray(profile.skinGoals) ? profile.skinGoals : [],
-          currentProducts: Array.isArray(profile.currentProducts) ? profile.currentProducts : [],
           dermatologistRecommended: profile.dermatologistRecommended || false,
           notes: profile.notes || '',
           photo: profile.photo || '',
@@ -122,17 +109,6 @@ export default function Profile() {
     set('allergies', form.allergies.filter(item => item !== allergy))
   }
 
-  function addProduct() {
-    if (newProduct.name.trim() && newProduct.type) {
-      set('currentProducts', [...form.currentProducts, { ...newProduct }])
-      setNewProduct({ name: '', brand: '', type: '', frequency: '' })
-    }
-  }
-
-  function removeProduct(index) {
-    set('currentProducts', form.currentProducts.filter((_, i) => i !== index))
-  }
-
   const handlePhotoUpload = async (event) => {
     const file = event.target.files[0]
     if (!file) return
@@ -165,9 +141,7 @@ export default function Profile() {
       console.log('Uploading file:', file.name, 'Size:', file.size)
       
       const { data } = await API.post('/upload/profile-photo', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        timeout: 30000 // 30 second timeout for uploads
       })
       
       console.log('Upload response:', data)
@@ -205,7 +179,12 @@ export default function Profile() {
 
   const handleConsultationPhotoUpload = async (event) => {
     const file = event.target.files[0]
-    if (!file) return
+    if (!file) {
+      console.log('No file selected')
+      return
+    }
+
+    console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type)
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -228,6 +207,7 @@ export default function Profile() {
       return
     }
 
+    console.log('Starting upload for concerns:', newConsultationPhoto.concerns)
     setUploadingConsultationPhoto(true)
     
     try {
@@ -235,11 +215,17 @@ export default function Profile() {
       formData.append('photo', file)
       
       console.log('Uploading consultation photo:', file.name)
+      console.log('FormData created with photo field')
+
+      // Check if we have a valid token
+      const token = localStorage.getItem('token')
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.')
+      }
+      console.log('Auth token found:', token.substring(0, 20) + '...')
       
       const { data } = await API.post('/upload/skin-photo', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+        timeout: 30000 // 30 second timeout for uploads
       })
       
       console.log('Consultation photo upload response:', data)
@@ -262,9 +248,17 @@ export default function Profile() {
       
     } catch (error) {
       console.error('Consultation photo upload error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config
+      })
       
       if (error?.response?.status === 401) {
-        setMsg('Please log in to upload photos')
+        setMsg('Authentication failed. Please log in again.')
+      } else if (error?.response?.status === 400) {
+        setMsg(error.response.data.message || 'Invalid upload request')
       } else if (error?.response?.data?.message) {
         setMsg(error.response.data.message)
       } else if (error?.message) {
@@ -276,6 +270,10 @@ export default function Profile() {
       setTimeout(() => setMsg(''), 5000)
     } finally {
       setUploadingConsultationPhoto(false)
+      // Reset file input
+      if (consultationFileInputRef.current) {
+        consultationFileInputRef.current.value = ''
+      }
     }
   }
 
@@ -320,12 +318,6 @@ export default function Profile() {
         allergies: Array.isArray(form.allergies) ? form.allergies.filter(a => typeof a === 'string') : [],
         concerns: Array.isArray(form.concerns) ? form.concerns.filter(c => typeof c === 'string') : [],
         skinGoals: Array.isArray(form.skinGoals) ? form.skinGoals.filter(g => typeof g === 'string') : [],
-        currentProducts: Array.isArray(form.currentProducts) ? form.currentProducts.map(p => ({
-          name: p?.name || '',
-          brand: p?.brand || '',
-          type: p?.type || '',
-          frequency: p?.frequency || ''
-        })) : [],
         consultationPhotos: Array.isArray(form.consultationPhotos) ? form.consultationPhotos.map(p => ({
           url: p?.url || '',
           uploadDate: p?.uploadDate || new Date(),
@@ -669,116 +661,6 @@ export default function Profile() {
                   ×
                 </button>
               </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Current Products */}
-        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '12px', border: '1px solid #ddd' }}>
-          <h3 style={{ marginBottom: '20px' }}>Current Skincare Products</h3>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px', marginBottom: '15px', alignItems: 'end' }}>
-            <input
-              type="text"
-              value={newProduct.name}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Product name"
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '6px'
-              }}
-            />
-            <input
-              type="text"
-              value={newProduct.brand}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, brand: e.target.value }))}
-              placeholder="Brand"
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '6px'
-              }}
-            />
-            <select
-              value={newProduct.type}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, type: e.target.value }))}
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '6px'
-              }}
-            >
-              <option value="">Type</option>
-              {productTypes.map(type => (
-                <option key={type} value={type} style={{ textTransform: 'capitalize' }}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <select
-              value={newProduct.frequency}
-              onChange={(e) => setNewProduct(prev => ({ ...prev, frequency: e.target.value }))}
-              style={{
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '6px'
-              }}
-            >
-              <option value="">Frequency</option>
-              <option value="daily">Daily</option>
-              <option value="twice-daily">Twice daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="as-needed">As needed</option>
-            </select>
-            <button
-              type="button"
-              onClick={addProduct}
-              style={{
-                padding: '10px 15px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Add
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {form.currentProducts.map((product, index) => (
-              <div key={index} style={{
-                backgroundColor: '#f8f9fa',
-                padding: '15px',
-                borderRadius: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <strong>{product.name}</strong>
-                  {product.brand && <span style={{ color: '#666' }}> by {product.brand}</span>}
-                  <div style={{ fontSize: '14px', color: '#666' }}>
-                    {product.type && <span style={{ textTransform: 'capitalize' }}>{product.type}</span>}
-                    {product.frequency && <span> • {product.frequency}</span>}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeProduct(index)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#dc3545',
-                    cursor: 'pointer',
-                    fontSize: '18px'
-                  }}
-                >
-                  ×
-                </button>
-              </div>
             ))}
           </div>
         </div>

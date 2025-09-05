@@ -1,8 +1,10 @@
 import Profile from '../models/Profile.js'
 
-export async function upsertProfile(req,res){
-  try{
-    const userId = req.user.id;
+export async function upsertProfile(req, res) {
+  console.log('Creating/updating profile for user:', req.user.id);
+  console.log('Profile data:', req.body);
+  
+  try {
     const {
       skinType,
       age,
@@ -10,15 +12,11 @@ export async function upsertProfile(req,res){
       allergies,
       concerns,
       skinGoals,
-      currentProducts,
       consultationPhotos,
       dermatologistRecommended,
       notes,
       photo
     } = req.body;
-
-    console.log('Creating/updating profile for user:', userId);
-    console.log('Profile data:', req.body);
 
     // Validate required fields
     if (!skinType || !age || !gender) {
@@ -27,52 +25,75 @@ export async function upsertProfile(req,res){
       });
     }
 
-    // Ensure arrays are properly formatted
-    const safeArrays = {
+    // Create a clean profile data object (removed currentProducts)
+    const profileData = {
+      userId: req.user.id,
+      skinType: skinType,
+      age: parseInt(age),
+      gender: gender,
       allergies: Array.isArray(allergies) ? allergies : [],
       concerns: Array.isArray(concerns) ? concerns : [],
       skinGoals: Array.isArray(skinGoals) ? skinGoals : [],
-      currentProducts: Array.isArray(currentProducts) ? currentProducts : [],
-      consultationPhotos: Array.isArray(consultationPhotos) ? consultationPhotos : []
-    };
-
-    const data = { 
-      userId,
-      skinType,
-      age: parseInt(age),
-      gender,
-      ...safeArrays,
       dermatologistRecommended: Boolean(dermatologistRecommended),
       notes: notes || '',
-      photo: photo || null
+      photo: photo || ''
     };
 
-    // Delete any existing profile to avoid conflicts
-    await Profile.deleteOne({ userId: req.user.id });
-    
-    // Create new profile
-    const profile = new Profile(data);
-    await profile.save();
+    // Handle consultationPhotos
+    if (consultationPhotos && Array.isArray(consultationPhotos)) {
+      profileData.consultationPhotos = consultationPhotos.map(photo => {
+        if (typeof photo === 'object' && photo !== null) {
+          return {
+            url: String(photo.url || ''),
+            uploadDate: photo.uploadDate ? new Date(photo.uploadDate) : new Date(),
+            concerns: Array.isArray(photo.concerns) ? photo.concerns : [],
+            notes: String(photo.notes || '')
+          };
+        }
+        return {
+          url: '',
+          uploadDate: new Date(),
+          concerns: [],
+          notes: ''
+        };
+      });
+    } else {
+      profileData.consultationPhotos = [];
+    }
+
+    console.log('Final profile data to save:', profileData);
+
+    // Use findOneAndUpdate with upsert
+    const savedProfile = await Profile.findOneAndUpdate(
+      { userId: req.user.id },
+      profileData,
+      { 
+        upsert: true, 
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true
+      }
+    );
 
     res.json({
       message: 'Profile saved successfully',
-      profile
+      profile: savedProfile
     });
-  }catch(e){ 
+  } catch (e) { 
     console.error('Profile error:', e);
-    res.status(500).json({error: e.message}) 
+    res.status(500).json({ error: e.message }) 
   }
 }
 
-export async function getMyProfile(req,res){
-  try{
+export async function getMyProfile(req, res) {
+  try {
     const profile = await Profile.findOne({ userId: req.user.id }).populate('userId', 'name email');
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
     res.json({ profile });
-  }catch(e){ 
+  } catch (e) { 
     console.error('Get profile error:', e);
-    res.status(500).json({error: e.message}) 
+    res.status(500).json({ error: e.message }) 
   }
 }

@@ -15,7 +15,7 @@ r.use(authRequired)
 
 r.get('/', getCart)
 r.post('/add', addToCart)
-r.put('/update/:productId', updateCartItem)
+r.put('/update', updateCartItem)
 r.delete('/remove/:productId', removeFromCart)
 r.delete('/clear', clearCart)
 

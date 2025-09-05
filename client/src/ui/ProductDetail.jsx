@@ -10,6 +10,7 @@ export default function ProductDetail() {
   const [error, setError] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [addingToCart, setAddingToCart] = useState(false)
+  const [buyingNow, setBuyingNow] = useState(false)
   const [addingToWishlist, setAddingToWishlist] = useState(false)
   const [isInWishlist, setIsInWishlist] = useState(false)
   const [selectedImage, setSelectedImage] = useState(0)
@@ -52,6 +53,44 @@ export default function ProductDetail() {
       alert(err.response?.data?.error || 'Failed to add to cart')
     } finally {
       setAddingToCart(false)
+    }
+  }
+
+  const buyNow = async () => {
+    try {
+      setBuyingNow(true)
+      console.log('Buy Now clicked - starting process...')
+      
+      // Check authentication first
+      const token = localStorage.getItem('token')
+      if (!token) {
+        alert('Please log in to continue')
+        navigate('/login')
+        return
+      }
+      
+      // First add to cart
+      console.log('Adding to cart:', { productId: id, quantity })
+      await API.post('/cart/add', { productId: id, quantity })
+      console.log('Added to cart successfully')
+      
+      // Small delay to ensure cart is updated
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Then redirect to checkout
+      console.log('Navigating to checkout...')
+      navigate('/checkout')
+      console.log('Navigation called')
+    } catch (err) {
+      console.error('Buy Now error:', err)
+      if (err.response?.status === 401) {
+        alert('Please log in to continue')
+        navigate('/login')
+      } else {
+        alert(err.response?.data?.error || 'Failed to proceed to checkout')
+      }
+    } finally {
+      setBuyingNow(false)
     }
   }
 
@@ -411,6 +450,25 @@ export default function ProductDetail() {
             <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
               <button
                 className="btn"
+                onClick={buyNow}
+                disabled={!product.inStock || buyingNow}
+                style={{
+                  flex: 1,
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  padding: '16px',
+                  background: product.inStock ? '#38a169' : '#ccc',
+                  cursor: product.inStock ? 'pointer' : 'not-allowed',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px'
+                }}
+              >
+                {buyingNow ? 'Processing...' : product.inStock ? 'Buy Now' : 'Out of Stock'}
+              </button>
+              
+              <button
+                className="btn"
                 onClick={addToCart}
                 disabled={!product.inStock || addingToCart}
                 style={{
@@ -418,11 +476,11 @@ export default function ProductDetail() {
                   fontSize: '16px',
                   fontWeight: '600',
                   padding: '16px',
-                  background: !product.inStock ? '#ccc' : undefined,
-                  cursor: !product.inStock ? 'not-allowed' : 'pointer'
+                  background: product.inStock ? undefined : '#ccc',
+                  cursor: product.inStock ? 'pointer' : 'not-allowed'
                 }}
               >
-                {addingToCart ? 'Adding...' : !product.inStock ? 'Out of Stock' : 'Add to Cart'}
+                {addingToCart ? 'Adding...' : product.inStock ? 'Add to Cart' : 'Out of Stock'}
               </button>
               
               <button

@@ -45,12 +45,6 @@ const ProfileSchema = new mongoose.Schema({
     type: String,
     enum: ['clear-skin', 'anti-aging', 'hydration', 'brightening', 'oil-control', 'sensitive-care']
   }],
-  currentProducts: [{
-    name: String,
-    brand: String,
-    type: String,
-    frequency: String
-  }],
   dermatologistRecommended: {
     type: Boolean,
     default: false
@@ -60,8 +54,5 @@ const ProfileSchema = new mongoose.Schema({
     maxlength: 500
   }
 }, { timestamps: true })
-
-// Ensure only one profile per user
-ProfileSchema.index({ userId: 1 }, { unique: true })
 
 export default mongoose.model('Profile', ProfileSchema)
