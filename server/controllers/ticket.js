@@ -4,6 +4,7 @@ import Notification from '../models/Notification.js'
 import User from '../models/User.js'
 import Product from '../models/Product.js'
 import Profile from '../models/Profile.js'
+import Booking from '../models/Booking.js'
 import Stripe from 'stripe'
 import PDFDocument from 'pdfkit'
 import fs from 'fs'
@@ -47,86 +48,136 @@ export async function createTicket(req, res) {
       consultationType,
       preferredDermatologist,
       preferredSlot,
-      urgency
+      createBooking
     } = req.body
 
     // Validate required fields
-    if (!concern) {
+    if (!concern || !photos || photos.length === 0) {
       return res.status(400).json({ 
-        error: 'Concern description is required' 
+        error: 'Concern description and at least one photo are required' 
       })
     }
-
-    // For photo reviews, at least one photo is required
-    if (consultationType === 'photo_review' && (!photos || photos.length === 0)) {
-      return res.status(400).json({ 
-        error: 'At least one photo is required for photo review consultations' 
-      })
-    }
-
-    // Set consultation fee based on type
-    let consultationFee = 50; // default for photo_review
-    if (consultationType === 'video_call') consultationFee = 100;
-    if (consultationType === 'follow_up') consultationFee = 30;
 
     // Create the ticket
     const ticket = await Ticket.create({
       user: req.user.id,
       concern,
       skinType,
-      symptoms: Array.isArray(symptoms) ? symptoms : (symptoms ? [symptoms] : []),
+      symptoms: Array.isArray(symptoms) ? symptoms : [symptoms],
       duration,
       previousTreatments,
       allergies,
-      photos: photos ? photos.map(photo => ({
+      photos: photos.map(photo => ({
         url: photo.url,
         description: photo.description || ''
-      })) : [],
+      })),
+      status: 'submitted',
       consultationType: consultationType || 'photo_review',
-      preferredDermatologist: preferredDermatologist || null,
-      preferredSlot: preferredSlot || null,
-      urgency: urgency || 'medium',
-      priority: urgency || 'medium',
-      consultationFee,
-      status: 'submitted'
+      preferredDermatologist: preferredDermatologist || null
     })
 
     // Populate user info
     await ticket.populate('user', 'name email')
+
+    // Optional: create a booking directly if requested and dermatologist + slot info present
+    let booking = null
+    if (createBooking && preferredDermatologist) {
+      try {
+        // If slot info is provided (for follow_up maybe) parse it
+        let scheduledDateTime = new Date()
+        if (preferredSlot) {
+          // expected format date- time separated by '-' or stored id pattern
+          if (typeof preferredSlot === 'string' && preferredSlot.includes('-')) {
+            const parts = preferredSlot.split('-')
+            const datePart = parts[0]
+            const timePart = parts[1] || '09:00'
+            scheduledDateTime = new Date(`${datePart}T${timePart}:00`)
+          }
+        } else {
+          // default: schedule 24h later
+            scheduledDateTime.setDate(scheduledDateTime.getDate() + 1)
+            scheduledDateTime.setHours(10,0,0,0)
+        }
+
+        // Fetch dermatologist for fee logic
+        const derm = await User.findById(preferredDermatologist)
+        if (derm && derm.role === 'dermatologist') {
+          const sessionType = consultationType || 'photo_review'
+          const consultationFee = derm.consultationFee?.[sessionType] || (sessionType === 'video_call' ? 100 : sessionType === 'follow_up' ? 30 : 50)
+
+          booking = await Booking.create({
+            patient: req.user.id,
+            dermatologist: preferredDermatologist,
+            sessionType,
+            scheduledDateTime,
+            consultationFee,
+            patientNotes: concern,
+            ticket: ticket._id
+          })
+          await booking.populate('patient', 'name email')
+          await booking.populate('dermatologist', 'name specialization')
+
+          // Notify dermatologist about linked booking
+          await createNotification(
+            preferredDermatologist,
+            'booking_created',
+            'New Booking (From Ticket)',
+            `${booking.patient.name} submitted a consultation request and a booking was created for ${scheduledDateTime.toLocaleString()}`,
+            {
+              booking: booking._id,
+              ticket: ticket._id,
+              sender: req.user.id,
+              actionRequired: false,
+              actionUrl: `/dermatologist/bookings/${booking._id}`,
+              actionText: 'View Booking'
+            }
+          )
+        }
+      } catch (err) {
+        console.error('Error auto-creating booking from ticket:', err)
+      }
+    }
 
     // Create notification for user
     await createNotification(
       req.user.id,
       'ticket_submitted',
       'Consultation Request Submitted',
-      `Your ${consultationType?.replace('_', ' ') || 'photo review'} consultation has been submitted successfully. Ticket ID: ${ticket._id}`,
+      `Your skin concern consultation has been submitted successfully. Ticket ID: ${ticket._id}`,
       { 
         ticket: ticket._id,
+        booking: booking?._id || null,
         actionRequired: true,
         actionUrl: `/tickets/${ticket._id}`,
         actionText: 'View Ticket'
       }
     )
 
-    // Notify preferred dermatologist or all available dermatologists
-    let dermatologists = []
-    if (preferredDermatologist) {
-      const preferredDerm = await User.findById(preferredDermatologist)
-      if (preferredDerm && preferredDerm.role === 'dermatologist' && preferredDerm.isActive) {
-        dermatologists = [preferredDerm]
+    // Notify available dermatologists only if no specific preferredDermatologist (to reduce noise)
+    if (!preferredDermatologist) {
+      const dermatologists = await User.find({ role: 'dermatologist', isActive: true })
+      for (const derm of dermatologists) {
+        await createNotification(
+          derm._id,
+          'ticket_submitted',
+          'New Consultation Request',
+          `A new skin concern consultation has been submitted by ${ticket.user.name}`,
+          { 
+            ticket: ticket._id,
+            sender: req.user.id,
+            actionRequired: true,
+            actionUrl: `/dermatologist/tickets/${ticket._id}`,
+            actionText: 'Review Consultation'
+          }
+        )
       }
-    }
-    
-    if (dermatologists.length === 0) {
-      dermatologists = await User.find({ role: 'dermatologist', isActive: true })
-    }
-
-    for (const derm of dermatologists) {
+    } else if (!booking) {
+      // If preferred dermatologist but no booking auto-created, still notify them
       await createNotification(
-        derm._id,
+        preferredDermatologist,
         'ticket_submitted',
         'New Consultation Request',
-        `A new ${consultationType?.replace('_', ' ') || 'photo review'} consultation has been submitted by ${ticket.user.name}`,
+        `${ticket.user.name} submitted a consultation request for you`,
         { 
           ticket: ticket._id,
           sender: req.user.id,
@@ -140,7 +191,8 @@ export async function createTicket(req, res) {
     res.status(201).json({
       success: true,
       ticket,
-      message: 'Consultation request submitted successfully'
+      booking,
+      message: booking ? 'Consultation request and booking created' : 'Consultation request submitted successfully'
     })
 
   } catch (error) {

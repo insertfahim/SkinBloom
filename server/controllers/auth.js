@@ -88,6 +88,11 @@ export async function getDermatologists(req, res) {
       isActive: true 
     })
     .select('-password')
+    .populate({
+      path: 'userId',
+      model: 'Profile',
+      select: 'qualification photo'
+    })
     
     // Get profiles for dermatologists
     const dermatologistIds = dermatologists.map(d => d._id)

@@ -64,10 +64,10 @@ function Checkout() {
 
   const fetchPaymentOptions = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/payments/options?amount=${cart.totalAmount}`);
+      const response = await axios.get(`http://localhost:5000/api/payment/options?amount=${cart.totalAmount}`);
       setPaymentOptions(response.data);
     } catch (error) {
-      console.error('Error fetching payment options:', error);
+      console.error('Error fetching payment options:', error.message || error);
     }
   };
 
@@ -78,12 +78,18 @@ function Checkout() {
 
       const token = localStorage.getItem('token');
       const cartItems = cart.items.map(item => ({
-        productId: item.product._id,
+        productId: (item.productId && item.productId._id) || (item.product && item.product._id),
         quantity: item.quantity
-      }));
+      })).filter(ci => ci.productId); // filter out any malformed entries
+
+      if (!cartItems.length) {
+        setError('No valid cart items to checkout');
+        setProcessing(false);
+        return;
+      }
 
       const response = await axios.post(
-        'http://localhost:5000/api/payments/checkout',
+        'http://localhost:5000/api/payment/checkout',
         {
           cartItems,
           paymentType: selectedPaymentType,
@@ -93,13 +99,16 @@ function Checkout() {
       );
 
       if (response.data.url) {
+        console.log('Redirecting to Stripe URL:', response.data.url)
         window.location.href = response.data.url;
       } else {
+        console.warn('Checkout response missing URL:', response.data)
         setError('Failed to create checkout session');
       }
     } catch (error) {
-      console.error('Checkout error:', error);
-      setError(error.response?.data?.error || 'Failed to process checkout');
+      console.error('Checkout error full:', error)
+      console.error('Checkout error response:', error.response?.data)
+      setError(error.response?.data?.error || error.message || 'Failed to process checkout');
     } finally {
       setProcessing(false);
     }
@@ -152,7 +161,9 @@ function Checkout() {
   }
 
   const getSelectedPaymentDetails = () => {
-    if (!paymentOptions) return null;
+    if (!paymentOptions) {
+      return null;
+    }
     
     switch (selectedPaymentType) {
       case 'cash_discount':
@@ -399,7 +410,7 @@ function Checkout() {
           {/* Cart Items */}
           <div style={{ marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '20px' }}>
             {cart?.items.map(item => (
-              <div key={item.product._id} style={{
+              <div key={item.productId?._id || item.product?._id} style={{
                 display: 'flex',
                 gap: '12px',
                 marginBottom: '16px'
@@ -407,23 +418,23 @@ function Checkout() {
                 <div style={{
                   width: '60px',
                   height: '60px',
-                  background: `url(${item.product.image}) center/cover`,
+                  background: `url(${item.productId?.image || item.product?.image}) center/cover`,
                   backgroundColor: '#f7fafc',
                   borderRadius: '8px'
                 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>
-                    {item.product.name}
+                    {item.productId?.name || item.product?.name}
                   </div>
                   <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>
-                    {item.product.brand}
+                    {item.productId?.brand || item.product?.brand}
                   </div>
                   <div style={{ fontSize: '14px', color: '#4a5568' }}>
-                    Qty: {item.quantity} × ${item.product.price.toFixed(2)}
+                    Qty: {item.quantity} × ${((item.price ?? item.productId?.price ?? item.product?.price) || 0).toFixed(2)}
                   </div>
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: '600' }}>
-                  ${(item.product.price * item.quantity).toFixed(2)}
+                  ${(((item.price ?? item.productId?.price ?? item.product?.price) || 0) * item.quantity).toFixed(2)}
                 </div>
               </div>
             ))}

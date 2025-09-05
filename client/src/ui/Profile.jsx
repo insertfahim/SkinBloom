@@ -14,7 +14,8 @@ export default function Profile() {
     dermatologistRecommended: false,
     notes: '',
     photo: '',
-    consultationPhotos: []
+  consultationPhotos: [],
+  qualification: ''
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -75,7 +76,8 @@ export default function Profile() {
           dermatologistRecommended: profile.dermatologistRecommended || false,
           notes: profile.notes || '',
           photo: profile.photo || '',
-          consultationPhotos: Array.isArray(profile.consultationPhotos) ? profile.consultationPhotos : []
+          consultationPhotos: Array.isArray(profile.consultationPhotos) ? profile.consultationPhotos : [],
+          qualification: profile.qualification || ''
         })
       }
     } catch (error) {
@@ -111,7 +113,9 @@ export default function Profile() {
 
   const handlePhotoUpload = async (event) => {
     const file = event.target.files[0]
-    if (!file) return
+    if (!file) {
+      return
+    }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -293,40 +297,67 @@ export default function Profile() {
   async function handleSubmit(e) {
     e.preventDefault()
     
-    // Validate required fields
-    if (!form.skinType || !form.age || !form.gender) {
-      setMsg('Please fill in all required fields (skin type, age, gender)')
-      setTimeout(() => setMsg(''), 5000)
-      return
-    }
-
-    if (form.age < 13 || form.age > 100) {
-      setMsg('Age must be between 13 and 100')
-      setTimeout(() => setMsg(''), 5000)
-      return
-    }
-
     try {
       setSaving(true)
       setMsg('')
       
-      // Clean and validate data before sending
-      const cleanedForm = {
-        skinType: form.skinType,
-        age: parseInt(form.age),
-        gender: form.gender,
-        allergies: Array.isArray(form.allergies) ? form.allergies.filter(a => typeof a === 'string') : [],
-        concerns: Array.isArray(form.concerns) ? form.concerns.filter(c => typeof c === 'string') : [],
-        skinGoals: Array.isArray(form.skinGoals) ? form.skinGoals.filter(g => typeof g === 'string') : [],
-        consultationPhotos: Array.isArray(form.consultationPhotos) ? form.consultationPhotos.map(p => ({
-          url: p?.url || '',
-          uploadDate: p?.uploadDate || new Date(),
-          concerns: Array.isArray(p?.concerns) ? p.concerns : [],
-          notes: p?.notes || ''
-        })) : [],
-        dermatologistRecommended: Boolean(form.dermatologistRecommended),
-        notes: form.notes || '',
-        photo: form.photo || ''
+      let cleanedForm;
+      
+      if (user?.role === 'dermatologist') {
+        // Dermatologist validation
+        if (!form.age || !form.gender || !form.qualification) {
+          setMsg('Please fill in all required fields (age, gender, qualification)')
+          setTimeout(() => setMsg(''), 5000)
+          return
+        }
+        
+        if (form.age < 18 || form.age > 100) {
+          setMsg('Age must be between 18 and 100')
+          setTimeout(() => setMsg(''), 5000)
+          return
+        }
+        
+        // Send only dermatologist-relevant data
+        cleanedForm = {
+          age: parseInt(form.age),
+          gender: form.gender,
+          qualification: form.qualification || '',
+          photo: form.photo || '',
+          notes: form.notes || ''
+        }
+      } else {
+        // Regular user validation
+        if (!form.skinType || !form.age || !form.gender) {
+          setMsg('Please fill in all required fields (skin type, age, gender)')
+          setTimeout(() => setMsg(''), 5000)
+          return
+        }
+
+        if (form.age < 13 || form.age > 100) {
+          setMsg('Age must be between 13 and 100')
+          setTimeout(() => setMsg(''), 5000)
+          return
+        }
+        
+        // Send full user profile data
+        cleanedForm = {
+          skinType: form.skinType,
+          age: parseInt(form.age),
+          gender: form.gender,
+          allergies: Array.isArray(form.allergies) ? form.allergies.filter(a => typeof a === 'string') : [],
+          concerns: Array.isArray(form.concerns) ? form.concerns.filter(c => typeof c === 'string') : [],
+          skinGoals: Array.isArray(form.skinGoals) ? form.skinGoals.filter(g => typeof g === 'string') : [],
+          consultationPhotos: Array.isArray(form.consultationPhotos) ? form.consultationPhotos.map(p => ({
+            url: p?.url || '',
+            uploadDate: p?.uploadDate || new Date(),
+            concerns: Array.isArray(p?.concerns) ? p.concerns : [],
+            notes: p?.notes || ''
+          })) : [],
+          dermatologistRecommended: Boolean(form.dermatologistRecommended),
+          notes: form.notes || '',
+          photo: form.photo || '',
+          qualification: form.qualification || ''
+        }
       }
       
       console.log('Submitting cleaned profile:', cleanedForm)
@@ -357,6 +388,72 @@ export default function Profile() {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
         <h2>Loading profile...</h2>
+      </div>
+    )
+  }
+
+  // Dermatologist simplified profile view
+  if (user?.role === 'dermatologist') {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+        <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>Dermatologist Profile</h1>
+        {msg && (
+          <div style={{
+            padding: '12px',
+            marginBottom: '20px',
+            borderRadius: '8px',
+            backgroundColor: msg.includes('success') || msg.includes('✅') ? '#d1fae5' : '#fee2e2',
+            color: msg.includes('success') || msg.includes('✅') ? '#065f46' : '#991b1b'
+          }}>{msg}</div>
+        )}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Photo */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '140px', height: '140px', borderRadius: '50%', margin: '0 auto 16px',
+              overflow: 'hidden', border: '4px solid #e5e7eb', background: '#f3f4f6',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {form.photo ? (
+                <img src={form.photo} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : <span style={{ fontSize: '48px' }}>👩‍⚕️</span>}
+            </div>
+            <button type="button" onClick={() => fileInputRef.current?.click()} style={{
+              background: '#3b82f6', color: 'white', border: 'none', padding: '10px 18px',
+              borderRadius: '6px', cursor: 'pointer', fontWeight: 600
+            }}>{uploadingPhoto ? 'Uploading...' : 'Upload Photo'}</button>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+          </div>
+
+          {/* Basic */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>Age *</label>
+              <input type="number" value={form.age} min={18} max={100} required onChange={e => set('age', e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>Gender *</label>
+              <select value={form.gender} required onChange={e => set('gender', e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }}>
+                <option value="">Select</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>Qualification *</label>
+            <input type="text" value={form.qualification} required maxLength={150} placeholder="e.g. MBBS, MD (Dermatology)" onChange={e => set('qualification', e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px' }} />
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{form.qualification.length}/150</div>
+          </div>
+
+          <button type="submit" disabled={saving} style={{
+            background: saving ? '#9ca3af' : '#10b981', color: 'white', padding: '12px 20px',
+            border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer'
+          }}>{saving ? 'Saving...' : 'Save Profile'}</button>
+        </form>
       </div>
     )
   }
