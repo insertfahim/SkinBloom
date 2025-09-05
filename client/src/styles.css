@@ -83,6 +83,7 @@ body {
     display: flex;
     gap: 16px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 .btn.primary {
     background: #2f5d3b;

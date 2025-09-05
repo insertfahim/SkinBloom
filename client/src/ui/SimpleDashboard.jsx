@@ -63,11 +63,11 @@ export default function SimpleDashboard() {
                         </p>
                         <div className="hero-ctas">
                             <Link to="/products" className="btn primary">
-                                Shop Now
+                                Shop Products
                             </Link>
                             {!user && (
                                 <Link to="/register" className="btn ghost">
-                                    Get Started
+                                    Create Account
                                 </Link>
                             )}
                             {user && user.role === "user" && (
