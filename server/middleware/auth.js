@@ -59,9 +59,21 @@ export function requireRole(...roles) {
 
 // Specific role middleware
 export const adminRequired = (req, res, next) => {
-  return requireRole('admin')(req, res, next)
-}
+  // First authenticate, then check role
+  authRequired(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+    return requireRole('admin')(req, res, next);
+  });
+};
 
 export const dermatologistRequired = (req, res, next) => {
-  return requireRole('dermatologist', 'admin')(req, res, next)
-}
+  // First authenticate, then check role
+  authRequired(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+    return requireRole('dermatologist', 'admin')(req, res, next);
+  });
+};
