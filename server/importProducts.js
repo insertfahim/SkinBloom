@@ -129,18 +129,18 @@ async function importProducts() {
 }
 
 function generateProductImage(productName, category) {
-    // Generate a placeholder image URL based on product
-    const categorySeeds = {
-        Cleanser: 1,
-        Toner: 2,
-        Serum: 3,
-        Treatment: 4,
-        Moisturizer: 5,
-        Sunscreen: 6,
+    // Generate a local placeholder image path
+    const categoryImages = {
+        Cleanser: "cleanser.jpg",
+        Toner: "toner.jpg",
+        Serum: "serum.jpg",
+        Treatment: "treatment.jpg",
+        Moisturizer: "moisturizer.jpg",
+        Sunscreen: "sunscreen.jpg",
     };
 
-    const seed = categorySeeds[category] || 1;
-    return `https://picsum.photos/400/400?random=${seed}`;
+    const imageName = categoryImages[category] || "product.jpg";
+    return `http://localhost:5000/uploads/products/${imageName}`;
 }
 
 function generateIngredients(category) {
