@@ -12,69 +12,82 @@
 
 // export default r;
 
-import { Router } from 'express'
-import { authRequired, dermatologistRequired } from '../middleware/auth.js'
-import User from '../models/User.js'
-import Profile from '../models/Profile.js'
-import { upsertProfile, getMyProfile } from '../controllers/profile.js'
+import { Router } from "express";
+import { authRequired, dermatologistRequired } from "../middleware/auth.js";
+import User from "../models/User.js";
+import Profile from "../models/Profile.js";
+import { upsertProfile, getMyProfile } from "../controllers/profile.js";
 
-const r = Router()
+const r = Router();
 
 // user doc (minus password)
-r.get('/', authRequired, async (req, res) => {
-    const user = await User.findById(req.user.id).select('-password')
-    if (!user) return res.status(404).json({ message: 'User not found' })
-    res.json(user)
-})
+r.get("/", authRequired, async (req, res) => {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+});
+
+// Alias for /profile/me
+r.get("/me", authRequired, async (req, res) => {
+    const user = await User.findById(req.user.id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+});
 
 // Dermatologist view user profile for consultation
-r.get('/user/:userId', dermatologistRequired, async (req, res) => {
+r.get("/user/:userId", dermatologistRequired, async (req, res) => {
     try {
-        const { userId } = req.params
-        console.log('Dermatologist profile request for userId:', userId)
-        console.log('Requesting user role:', req.user?.role)
-        
+        const { userId } = req.params;
+        console.log("Dermatologist profile request for userId:", userId);
+        console.log("Requesting user role:", req.user?.role);
+
         // Get user basic info
-        const user = await User.findById(userId).select('name email role createdAt')
-        console.log('Found user:', user)
+        const user = await User.findById(userId).select(
+            "name email role createdAt"
+        );
+        console.log("Found user:", user);
         if (!user) {
-            return res.status(404).json({ error: 'User not found' })
+            return res.status(404).json({ error: "User not found" });
         }
-        
+
         // Get user's skin profile
-    const profile = await Profile.findOne({ userId }).select('photo age gender skinType concerns allergies notes consultationPhotos qualification')
-        console.log('Found profile:', profile)
-        
+        const profile = await Profile.findOne({ userId }).select(
+            "photo age gender skinType concerns allergies notes consultationPhotos qualification"
+        );
+        console.log("Found profile:", profile);
+
         // Return limited profile info for dermatologist consultation
         const response = {
             user: {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                memberSince: user.createdAt
+                memberSince: user.createdAt,
             },
-            profile: profile ? {
-                photo: profile.photo,
-                age: profile.age,
-                gender: profile.gender,
-                skinType: profile.skinType,
-                concerns: profile.concerns,
-                qualification: profile.qualification,
-                allergies: profile.allergies,
-                notes: profile.notes,
-                consultationPhotos: profile.consultationPhotos
-            } : null
-        }
-        console.log('Sending response:', response)
-        res.json(response)
+            profile: profile
+                ? {
+                      photo: profile.photo,
+                      age: profile.age,
+                      gender: profile.gender,
+                      skinType: profile.skinType,
+                      concerns: profile.concerns,
+                      qualification: profile.qualification,
+                      allergies: profile.allergies,
+                      notes: profile.notes,
+                      consultationPhotos: profile.consultationPhotos,
+                  }
+                : null,
+        };
+        console.log("Sending response:", response);
+        res.json(response);
     } catch (error) {
-        console.error('Error fetching user profile for dermatologist:', error)
-        res.status(500).json({ error: error.message })
+        console.error("Error fetching user profile for dermatologist:", error);
+        res.status(500).json({ error: error.message });
     }
-})
+});
 
 // skin profile
-r.get('/me', authRequired, getMyProfile)
-r.post('/me', authRequired, upsertProfile)
+r.get("/me", authRequired, getMyProfile);
+r.post("/me", authRequired, upsertProfile);
 
-export default r
+export default r;

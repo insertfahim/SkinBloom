@@ -5,7 +5,9 @@ import API from '../auth';
 export default function DermatologistDashboard() {
   const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
   const [consultation, setConsultation] = useState({
     diagnosis: '',
@@ -16,10 +18,12 @@ export default function DermatologistDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending'); // pending, assigned, completed
+  const [activeTab, setActiveTab] = useState('overview'); // overview, tickets, bookings
+  const [activeSubTab, setActiveSubTab] = useState('pending'); // for tickets: pending, assigned, completed
 
   useEffect(() => {
     loadTickets();
+    loadBookings();
     loadProducts();
   }, []);
 
@@ -30,6 +34,16 @@ export default function DermatologistDashboard() {
       setTickets(list);
     } catch (error) {
       console.error('Error loading tickets:', error);
+    }
+  };
+
+  const loadBookings = async () => {
+    try {
+      const { data } = await API.get('/bookings/dermatologist/bookings');
+      const list = Array.isArray(data) ? data : (data.bookings || []);
+      setBookings(list);
+    } catch (error) {
+      console.error('Error loading bookings:', error);
     } finally {
       setLoading(false);
     }
@@ -197,11 +211,15 @@ export default function DermatologistDashboard() {
           border: '1px solid #f3f4f6',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏰</div>
-          <h3 style={{ color: '#f59e0b', fontSize: '24px', margin: 0 }}>
-            {tickets.filter(t => t.status === 'pending').length}
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>📅</div>
+          <h3 style={{ color: '#3b82f6', fontSize: '24px', margin: 0 }}>
+            {bookings.filter(b => {
+              const today = new Date();
+              const bookingDate = new Date(b.scheduledDateTime);
+              return today.toDateString() === bookingDate.toDateString();
+            }).length}
           </h3>
-          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Pending</p>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Today's Bookings</p>
         </div>
 
         <div style={{
@@ -211,9 +229,9 @@ export default function DermatologistDashboard() {
           border: '1px solid #f3f4f6',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>👨‍⚕️</div>
-          <h3 style={{ color: '#3b82f6', fontSize: '24px', margin: 0 }}>
-            {tickets.filter(t => ['assigned', 'in-consultation'].includes(t.status)).length}
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>�</div>
+          <h3 style={{ color: '#8b5cf6', fontSize: '24px', margin: 0 }}>
+            {bookings.filter(b => b.status === 'in_progress').length}
           </h3>
           <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>In Progress</p>
         </div>
@@ -227,7 +245,7 @@ export default function DermatologistDashboard() {
         }}>
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
           <h3 style={{ color: '#10b981', fontSize: '24px', margin: 0 }}>
-            {tickets.filter(t => ['consultation-provided', 'resolved'].includes(t.status)).length}
+            {bookings.filter(b => b.status === 'completed').length}
           </h3>
           <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Completed</p>
         </div>
@@ -239,11 +257,14 @@ export default function DermatologistDashboard() {
           border: '1px solid #f3f4f6',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
-          <h3 style={{ color: '#1f2937', fontSize: '24px', margin: 0 }}>
-            {tickets.length}
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>�</div>
+          <h3 style={{ color: '#f59e0b', fontSize: '24px', margin: 0 }}>
+            ${bookings
+              .filter(b => b.status === 'completed' && b.paymentStatus === 'paid')
+              .reduce((sum, b) => sum + (b.consultationFee || 0), 0)
+            }
           </h3>
-          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Total Cases</p>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Earnings</p>
         </div>
       </div>
 
@@ -255,9 +276,9 @@ export default function DermatologistDashboard() {
         borderBottom: '1px solid #f3f4f6'
       }}>
         {[
-          { key: 'pending', label: 'Pending Cases', count: tickets.filter(t => t.status === 'pending').length },
-          { key: 'assigned', label: 'My Cases', count: tickets.filter(t => ['assigned', 'in-consultation'].includes(t.status)).length },
-          { key: 'completed', label: 'Completed', count: tickets.filter(t => ['consultation-provided', 'resolved', 'paid'].includes(t.status)).length }
+          { key: 'overview', label: 'Overview' },
+          { key: 'bookings', label: `Bookings (${bookings.length})` },
+          { key: 'tickets', label: `Tickets (${tickets.length})` }
         ].map(tab => (
           <button
             key={tab.key}
@@ -274,7 +295,7 @@ export default function DermatologistDashboard() {
               transition: 'all 0.2s ease'
             }}
           >
-            {tab.label} ({tab.count})
+            {tab.label}
           </button>
         ))}
       </div>
@@ -598,7 +619,7 @@ export default function DermatologistDashboard() {
             </div>
 
             {/* Symptoms */}
-            {selectedTicket.symptoms && (
+            {selectedTicket.symptoms && selectedTicket.symptoms.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <h3 style={{
                   fontSize: '16px',
@@ -615,7 +636,39 @@ export default function DermatologistDashboard() {
                   border: '1px solid #f3f4f6',
                   fontSize: '14px'
                 }}>
-                  {selectedTicket.symptoms}
+                  {Array.isArray(selectedTicket.symptoms) ? selectedTicket.symptoms.join(', ') : selectedTicket.symptoms}
+                </div>
+              </div>
+            )}
+
+            {/* Patient Profile Concerns */}
+            {selectedTicket.user?.profile?.concerns && selectedTicket.user.profile.concerns.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: '#1f2937',
+                  marginBottom: '8px'
+                }}>
+                  Patient Reported Concerns
+                </h3>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px'
+                }}>
+                  {selectedTicket.user.profile.concerns.map((c, i) => (
+                    <span key={i} style={{
+                      background: '#eef2ff',
+                      color: '#4338ca',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      textTransform: 'capitalize'
+                    }}>
+                      {c.replace('-', ' ')}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -735,7 +788,9 @@ export default function DermatologistDashboard() {
                   <select
                     onChange={(e) => {
                       const product = availableProducts.find(p => p._id === e.target.value);
-                      if (product) addRecommendedProduct(product);
+                      if (product) {
+                        addRecommendedProduct(product);
+                      }
                       e.target.value = '';
                     }}
                     style={{
