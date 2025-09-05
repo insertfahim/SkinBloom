@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Button from '../components/Button'
 
 function Cart() {
   const navigate = useNavigate()
@@ -35,7 +36,9 @@ function Cart() {
   }
 
   const updateQuantity = async (productId, newQuantity) => {
-    if (newQuantity < 1) return
+    if (newQuantity < 1) {
+      return
+    }
 
     try {
       setUpdating(prev => ({ ...prev, [productId]: true }))
@@ -76,7 +79,9 @@ function Cart() {
   }
 
   const clearCart = async () => {
-    if (!confirm('Are you sure you want to clear your cart?')) return
+    if (!confirm('Are you sure you want to clear your cart?')) {
+      return
+    }
 
     try {
       setLoading(true)
@@ -119,19 +124,7 @@ function Cart() {
         gap: '16px'
       }}>
         <div style={{ fontSize: '18px', color: '#e53e3e' }}>{error}</div>
-        <button 
-          onClick={fetchCart}
-          style={{
-            padding: '8px 16px',
-            background: '#3182ce',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          Try Again
-        </button>
+  <Button onClick={fetchCart} className="blue">Try Again</Button>
       </div>
     )
   }
@@ -195,23 +188,7 @@ function Cart() {
         </h1>
         
         {cart.items.length > 0 && (
-          <button
-            onClick={clearCart}
-            style={{
-              padding: '8px 16px',
-              background: '#e53e3e',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              transition: 'background 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.background = '#c53030'}
-            onMouseLeave={(e) => e.target.style.background = '#e53e3e'}
-          >
-            Clear Cart
-          </button>
+          <Button variant="danger" size="sm" onClick={clearCart}>Clear Cart</Button>
         )}
       </div>
 
@@ -219,7 +196,7 @@ function Cart() {
         {/* Cart Items */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {cart.items.map(item => (
-            <div key={item.product._id} style={{
+            <div key={item.productId?._id || item.product?._id} style={{
               background: 'white',
               border: '1px solid #e2e8f0',
               borderRadius: '12px',
@@ -230,11 +207,11 @@ function Cart() {
               alignItems: 'center'
             }}>
               {/* Product Image */}
-              <Link to={`/products/${item.product._id}`}>
+        <Link to={`/products/${item.productId?._id || item.product?._id}`}> 
                 <div style={{
                   width: '120px',
                   height: '120px',
-                  background: `url(${item.product.image}) center/cover`,
+          background: `url(${item.productId?.image || item.product?.image}) center/cover`,
                   backgroundColor: '#f7fafc',
                   borderRadius: '8px',
                   cursor: 'pointer'
@@ -244,7 +221,7 @@ function Cart() {
               {/* Product Details */}
               <div>
                 <Link 
-                  to={`/products/${item.product._id}`}
+                  to={`/products/${item.productId?._id || item.product?._id}`}
                   style={{ textDecoration: 'none', color: 'inherit' }}
                 >
                   <div style={{
@@ -254,7 +231,7 @@ function Cart() {
                     letterSpacing: '0.5px',
                     marginBottom: '4px'
                   }}>
-                    {item.product.brand}
+                    {item.productId?.brand || item.product?.brand}
                   </div>
                   <h3 style={{
                     fontSize: '16px',
@@ -263,7 +240,7 @@ function Cart() {
                     color: '#2d3748',
                     lineHeight: '1.3'
                   }}>
-                    {item.product.name}
+                    {item.productId?.name || item.product?.name}
                   </h3>
                 </Link>
 
@@ -276,7 +253,7 @@ function Cart() {
                     fontSize: '12px',
                     fontWeight: '500'
                   }}>
-                    {item.product.category}
+                    {item.productId?.category || item.product?.category}
                   </span>
                 </div>
 
@@ -291,7 +268,7 @@ function Cart() {
                     fontWeight: '700',
                     color: '#2d3748'
                   }}>
-                    ${item.product.price.toFixed(2)}
+                    ${(item.price ?? item.productId?.price ?? item.product?.price)?.toFixed(2)}
                   </div>
                   
                   {/* Quantity Controls */}
@@ -303,8 +280,8 @@ function Cart() {
                     overflow: 'hidden'
                   }}>
                     <button
-                      onClick={() => updateQuantity(item.product._id, item.quantity - 1)}
-                      disabled={item.quantity <= 1 || updating[item.product._id]}
+                      onClick={() => updateQuantity(item.productId?._id || item.product?._id, item.quantity - 1)}
+                      disabled={item.quantity <= 1 || updating[item.productId?._id || item.product?._id]}
                       style={{
                         width: '36px',
                         height: '36px',
@@ -330,8 +307,8 @@ function Cart() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.product._id, item.quantity + 1)}
-                      disabled={updating[item.product._id]}
+                      onClick={() => updateQuantity(item.productId?._id || item.product?._id, item.quantity + 1)}
+                      disabled={updating[item.productId?._id || item.product?._id]}
                       style={{
                         width: '36px',
                         height: '36px',
@@ -352,14 +329,14 @@ function Cart() {
                   fontWeight: '600',
                   color: '#3182ce'
                 }}>
-                  Subtotal: ${(item.product.price * item.quantity).toFixed(2)}
+                  Subtotal: ${(((item.price ?? item.productId?.price ?? item.product?.price) * item.quantity)).toFixed(2)}
                 </div>
               </div>
 
               {/* Remove Button */}
               <button
-                onClick={() => removeItem(item.product._id)}
-                disabled={updating[item.product._id]}
+                onClick={() => removeItem(item.productId?._id || item.product?._id)}
+                disabled={updating[item.productId?._id || item.product?._id]}
                 style={{
                   padding: '8px',
                   background: 'transparent',
@@ -445,26 +422,9 @@ function Cart() {
             <span>${cart.totalAmount.toFixed(2)}</span>
           </div>
 
-          <button
-            onClick={() => navigate('/checkout')}
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: '#3182ce',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              marginBottom: '12px',
-              transition: 'background 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.background = '#2c5aa0'}
-            onMouseLeave={(e) => e.target.style.background = '#3182ce'}
-          >
+          <Button onClick={() => navigate('/checkout')} className="blue lg" style={{ width: '100%', marginBottom: '12px' }}>
             Proceed to Checkout
-          </button>
+          </Button>
 
           <Link
             to="/products"

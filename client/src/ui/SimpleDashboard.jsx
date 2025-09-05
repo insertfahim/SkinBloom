@@ -1,151 +1,144 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import API from '../auth'
+
+/*
+  New universal landing / home page.
+  - Shows marketing hero, categories, collection highlight, trending products
+  - If user logged in: greets by name & swaps primary CTA
+  - Uses public products endpoint for data
+*/
 
 export default function SimpleDashboard() {
-  const { user } = useAuth();
+  const { user } = useAuth()
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  if (user) {
-    // Redirect authenticated users to their appropriate dashboard
-    return (
-      <div className="welcome-container">
-        <div className="welcome-header">
-          <h1>Welcome back, {user.name}!</h1>
-          <p>Continue your skincare journey</p>
-        </div>
-        
-        <div className="dashboard-cards">
-          {user.role === 'admin' && (
-            <Link to="/admin/dashboard" className="dashboard-card admin">
-              <h3>Admin Dashboard</h3>
-              <p>Manage users and system settings</p>
-              <span className="card-arrow">→</span>
-            </Link>
-          )}
-          
-          {user.role === 'dermatologist' && (
-            <Link to="/dermatologist/dashboard" className="dashboard-card dermatologist">
-              <h3>Dermatologist Dashboard</h3>
-              <p>View consultations and help users</p>
-              <span className="card-arrow">→</span>
-            </Link>
-          )}
-          
-          {user.role === 'user' && (
-            <>
-              <Link to="/dashboard" className="dashboard-card user">
-                <h3>My Dashboard</h3>
-                <p>View your skincare overview</p>
-                <span className="card-arrow">→</span>
-              </Link>
-              
-              <Link to="/products" className="dashboard-card">
-                <h3>Shop Products</h3>
-                <p>Explore curated skincare products</p>
-                <span className="card-arrow">→</span>
-              </Link>
-              
-              <Link to="/wishlist" className="dashboard-card">
-                <h3>My Wishlist</h3>
-                <p>Save your favorite products</p>
-                <span className="card-arrow">→</span>
-              </Link>
-              
-              <Link to="/routine" className="dashboard-card">
-                <h3>My Routine</h3>
-                <p>Manage your daily skincare routine</p>
-                <span className="card-arrow">→</span>
-              </Link>
-              
-              <Link to="/timeline" className="dashboard-card">
-                <h3>Progress Timeline</h3>
-                <p>Track your skincare journey</p>
-                <span className="card-arrow">→</span>
-              </Link>
-              
-              <Link to="/tickets" className="dashboard-card">
-                <h3>Get Help</h3>
-                <p>Ask our dermatologists</p>
-                <span className="card-arrow">→</span>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    let ignore = false
+    async function load() {
+      try {
+        setLoading(true)
+        const { data } = await API.get('/products')
+        // API returns an object: { products: [...], pagination: {...} }
+        const list = Array.isArray(data?.products) ? data.products : Array.isArray(data) ? data : []
+        if (!ignore) setProducts(list)
+      } catch (e) {
+        console.error('Products load failed:', e)
+        if (!ignore) setError('Failed to load products')
+      } finally {
+        if (!ignore) setLoading(false)
+      }
+    }
+    load()
+    return () => { ignore = true }
+  }, [])
 
-  // Landing page for non-authenticated users
+  const categories = [...new Set(products.map(p => p?.category).filter(Boolean))].slice(0,5)
+  const trending = products.slice(0,8)
+
   return (
-    <div className="landing-page">
-      <div className="hero-section">
-        <div className="hero-content">
-          <h1 className="hero-title">
-            Your Journey to <span className="highlight">Healthy Skin</span> Starts Here
-          </h1>
-          <p className="hero-subtitle">
-            Get personalized skincare routines, track your progress, and connect with dermatologists
-          </p>
-          <div className="hero-actions">
-            <Link to="/register" className="btn primary large">
-              Start Your Journey
-            </Link>
-            <Link to="/login" className="btn ghost large">
-              Sign In
-            </Link>
+    <div className="landing-wrapper">
+      {/* Hero */}
+      <section className="hero-banner">
+        <div className="hero-inner">
+          <div className="hero-text">
+            <h1>
+              Natural Skincare<br />
+              <span>Daily Routine</span>
+            </h1>
+            <p className="hero-tagline">
+              {user ? `Welcome back ${user.name}. Continue nurturing your skin with clean, science‑backed formulas.` : 'Products that harness the power of 100% natural, dermatologist guided formulation.'}
+            </p>
+            <div className="hero-ctas">
+              <Link to="/products" className="btn primary">Shop Now</Link>
+              {!user && <Link to="/register" className="btn ghost">Get Started</Link>}
+              {user && user.role === 'user' && <Link to="/dashboard" className="btn ghost">My Dashboard</Link>}
+            </div>
+          </div>
+          <div className="hero-art hero-art--image" aria-hidden="true">
+            <div className="hero-art-bg hero-art-overlay soft-left-fade" />
+            <img 
+              src="/hero-stilllife.jpg" 
+              alt="Minimal skincare products with branch shadow" 
+              className="hero-art-img"
+              onError={(e)=>{ e.currentTarget.style.opacity='0'; }}
+            />
           </div>
         </div>
-        
-        <div className="hero-image">
-          <div className="hero-placeholder">
-            <div className="skin-icon">🌸</div>
-            <p>Beautiful Skin Awaits</p>
-          </div>
-        </div>
-      </div>
+      </section>
 
-      <div className="features-section">
-        <div className="container">
-          <h2 className="section-title">Why Choose SkinBloom?</h2>
-          <div className="features-grid">
-            <div className="feature-card">
-              <div className="feature-icon">📋</div>
-              <h3>Personalized Routines</h3>
-              <p>Get custom skincare routines tailored to your skin type and concerns</p>
-            </div>
-            
-            <div className="feature-card">
-              <div className="feature-icon">📈</div>
-              <h3>Progress Tracking</h3>
-              <p>Monitor your skin improvement journey with detailed timeline and photos</p>
-            </div>
-            
-            <div className="feature-card">
-              <div className="feature-icon">👩‍⚕️</div>
-              <h3>Expert Guidance</h3>
-              <p>Connect with certified dermatologists for professional advice</p>
-            </div>
-            
-            <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h3>Smart Reminders</h3>
-              <p>Never miss your skincare routine with intelligent notifications</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="cta-section">
-        <div className="container">
-          <div className="cta-content">
-            <h2>Ready to Transform Your Skin?</h2>
-            <p>Join thousands of users who have already started their skincare journey with SkinBloom</p>
-            <Link to="/register" className="btn primary large">
-              Get Started Free
+      {/* Categories */}
+      <section className="categories-block">
+        <h2 className="section-heading">Popular Categories</h2>
+        <div className="category-scroller">
+          {categories.map(c => (
+            <Link key={c} to="/products" className="category-pill">
+              <div className="cat-img" />
+              <span>{c}</span>
             </Link>
-          </div>
+          ))}
+          {categories.length === 0 && (
+            <div className="category-empty">{loading ? 'Loading…' : 'No categories yet'}</div>
+          )}
         </div>
-      </div>
+      </section>
+
+      {/* Collection Highlight */}
+      <section className="collection-highlight">
+        <div className="highlight-grid">
+          <div className="highlight-text">
+            <p className="eyebrow">Best of Collection 2025</p>
+            <h3>Discover a Best of the Best world of Herbal</h3>
+            <p className="lead">Our therapy‑inspired range brings advanced botanicals together with dermatologist expertise for healthy, resilient skin.</p>
+            <Link to="/products" className="btn slim">Explore Collection</Link>
+          </div>
+          <div className="highlight-media" />
+        </div>
+      </section>
+
+      {/* Trending Products */}
+      <section className="trending-products">
+        <div className="section-header-row">
+          <h2 className="section-heading">Trending Products</h2>
+          <Link to="/products" className="view-all-link">View all →</Link>
+        </div>
+        {error && <div className="error-inline">{error}</div>}
+        <div className="product-grid">
+          {loading && trending.length === 0 && (
+            <div className="loading-placeholder">Loading products…</div>
+          )}
+          {!loading && trending.length === 0 && !error && (
+            <div className="empty-placeholder">No products available</div>
+          )}
+          {trending.map(p => (
+            <Link key={p?._id || Math.random()} to={p?._id ? `/products/${p._id}` : '#'} className="product-card">
+              <div className="product-thumb" style={{ backgroundImage: `url(${p?.image || ''})` }} />
+              <div className="product-info">
+                <p className="brand">{p?.brand || 'Brand'}</p>
+                <h4 className="name">{p?.name || 'Product'}</h4>
+                <div className="price-row">
+                  <span className="price">${typeof p?.price === 'number' ? p.price.toFixed(2) : '0.00'}</span>
+                  {p?.discount > 0 && <span className="badge-sale">-{p.discount}%</span>}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Footer */}
+      <section className="bottom-cta">
+        <h2>{user ? 'Keep glowing with SkinBloom' : 'Having a place set aside for consistent care changes everything'}</h2>
+        <p>{user ? 'Jump back into your personalized routine or explore new arrivals curated for you.' : 'Create your free account to build routines, track progress and shop dermatologist‑recommended products.'}</p>
+        <div className="hero-ctas">
+          <Link to="/products" className="btn primary">Shop Products</Link>
+          {!user && <Link to="/register" className="btn ghost">Create Account</Link>}
+          {user && user.role === 'user' && <Link to="/dashboard" className="btn ghost">Go to Dashboard</Link>}
+        </div>
+      </section>
     </div>
-  );
+  )
 }

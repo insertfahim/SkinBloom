@@ -39,126 +39,38 @@ export default function Dashboard(){
   return (
     <div style={{display:'grid',gap:0, minHeight: '100vh'}}>
       {/* Hero Section */}
-      <section style={{
-        background: 'linear-gradient(135deg, #f8fffe 0%, #e6fffa 50%, #b2f5ea 100%)',
-        padding: '80px 20px',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Background decoration */}
-        <div style={{
-          position: 'absolute',
-          top: '-50%',
-          right: '-10%',
-          width: '300px',
-          height: '300px',
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
-          borderRadius: '50%'
-        }}></div>
-        <div style={{
-          position: 'absolute',
-          bottom: '-30%',
-          left: '-5%',
-          width: '200px',
-          height: '200px',
-          background: 'radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%)',
-          borderRadius: '50%'
-        }}></div>
-
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          position: 'relative',
-          zIndex: 1
-        }}>
-          <h1 style={{
-            fontSize: '4rem',
-            fontWeight: '700',
-            marginBottom: '24px',
-            background: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            lineHeight: '1.1'
-          }}>
-            Transform Your Skincare Journey with SkinBloom
-          </h1>
-          
-          <p style={{
-            fontSize: '1.5rem',
-            color: '#4b5563',
-            marginBottom: '48px',
-            maxWidth: '800px',
-            margin: '0 auto 48px',
-            lineHeight: '1.6'
-          }}>
-            Personalized skincare routines, expert guidance, and comprehensive tracking tools for healthier, glowing skin
-          </p>
-
-          <div style={{
-            display: 'flex',
-            gap: '20px',
-            justifyContent: 'center',
-            flexWrap: 'wrap'
-          }}>
-            {!user ? (
-              <>
-                <Link to="/register" style={{
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                  color: 'white',
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)',
-                  transition: 'transform 0.3s ease'
-                }}>
-                  Get Started Free
-                </Link>
-                <Link to="/products" style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#374151',
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  border: '2px solid #e5e7eb',
-                  transition: 'transform 0.3s ease'
-                }}>
-                  Explore Products
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link to="/profile" style={{
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                  color: 'white',
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  boxShadow: '0 10px 25px rgba(59, 130, 246, 0.3)'
-                }}>
-                  Complete Your Profile
-                </Link>
-                <Link to="/routine" style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#374151',
-                  padding: '16px 32px',
-                  borderRadius: '12px',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  border: '2px solid #e5e7eb'
-                }}>
-                  Build Routine
-                </Link>
-              </>
-            )}
+      <section className="hero-banner">
+        <div className="hero-inner">
+          <div className="hero-text">
+            <h1>
+              Transform Your Skincare Journey<br />
+              <span>with SkinBloom</span>
+            </h1>
+            <p className="hero-tagline">
+              Personalized skincare routines, expert guidance, and comprehensive tracking tools for healthier, glowing skin
+            </p>
+            <div className="hero-ctas">
+              {!user ? (
+                <>
+                  <Link to="/register" className="btn primary">Get Started Free</Link>
+                  <Link to="/products" className="btn ghost">Explore Products</Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/profile" className="btn primary">Complete Your Profile</Link>
+                  <Link to="/routine" className="btn ghost">Build Routine</Link>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="hero-art hero-art--image" aria-hidden="true">
+            <div className="hero-art-bg hero-art-overlay soft-left-fade" />
+            <img 
+              src="/hero-stilllife.jpg" 
+              alt="Minimal skincare products with branch shadow" 
+              className="hero-art-img"
+              onError={(e)=>{ e.currentTarget.style.opacity='0'; }}
+            />
           </div>
         </div>
       </section>
@@ -389,140 +301,59 @@ export default function Dashboard(){
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section style={{
-        padding: '100px 20px',
-        background: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)'
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          <div style={{
-            textAlign: 'center',
-            marginBottom: '60px'
-          }}>
-            <h2 style={{
-              fontSize: '2.5rem',
-              fontWeight: '700',
-              marginBottom: '20px',
-              color: '#1f2937'
-            }}>
-              Featured Skincare Products
-            </h2>
-            <p style={{
-              fontSize: '1.1rem',
-              color: '#6b7280',
-              maxWidth: '600px',
-              margin: '0 auto'
-            }}>
-              Discover trending products loved by our skincare community
-            </p>
+      {/* Collection Highlight */}
+      <section className="collection-highlight">
+        <div className="highlight-grid">
+          <div className="highlight-text">
+            <p className="eyebrow">Natural Skincare</p>
+            <h3>Daily Routine</h3>
+            <p className="lead">Welcome back {user?.name || 'User'}. Continue nurturing your skin with clean, science‑backed formulas.</p>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <Link to="/products" className="btn primary">Shop Now</Link>
+              <Link to="/dashboard" className="btn ghost">My Dashboard</Link>
+            </div>
           </div>
+          <div className="highlight-media">
+            {/* Replace the src below with your own image placed in /public (e.g. /routine-hero.jpg) */}
+            <img 
+              src="/routine-hero.jpg" 
+              alt="Daily skincare routine products neatly arranged" 
+              className="highlight-img" 
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+              onError={(e)=>{ e.currentTarget.style.objectFit='contain'; e.currentTarget.style.background='#f3f4f6'; }}
+            />
+          </div>
+        </div>
+      </section>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-            gap: '30px'
-          }}>
-            {featured.map(prod => (
-              <div key={prod._id} style={{
-                background: 'white',
-                borderRadius: '16px',
-                padding: '24px',
-                border: '1px solid #e5e7eb',
-                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                cursor: 'pointer'
-              }}>
-                <div style={{
-                  background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-                  height: '200px',
-                  borderRadius: '12px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '48px'
-                }}>🧴</div>
-                
-                <div style={{
-                  background: '#f3f4f6',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: '#6b7280',
-                  display: 'inline-block',
-                  marginBottom: '12px'
-                }}>
-                  {prod.category}
-                </div>
-
-                <h3 style={{
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  marginBottom: '8px',
-                  color: '#1f2937',
-                  lineHeight: '1.4'
-                }}>
-                  {prod.name}
-                </h3>
-
-                <p style={{
-                  color: '#6b7280',
-                  fontSize: '14px',
-                  marginBottom: '16px'
-                }}>
-                  {prod.brand}
-                </p>
-
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <span style={{
-                    fontSize: '20px',
-                    fontWeight: '700',
-                    color: '#059669'
-                  }}>
-                    ${prod.price}
-                  </span>
-                  
-                  <button style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}>
-                    View Details
-                  </button>
+      {/* Trending Products (matching landing page) */}
+      <section className="trending-products">
+        <div className="section-header-row">
+          <h2 className="section-heading">Trending Products</h2>
+          <Link to="/products" className="view-all-link">View all →</Link>
+        </div>
+        <div className="product-grid">
+          {featured.length === 0 && (
+            <div className="loading-placeholder">Loading products…</div>
+          )}
+          {featured.map(p => (
+            <Link key={p._id} to={`/products/${p._id}`} className="product-card">
+              <div className="product-thumb" style={{ backgroundImage: `url(${p.image || ''})` }} />
+              <div className="product-info">
+                <p className="brand">{p?.brand || 'Brand'}</p>
+                <h4 className="name">{p?.name || 'Product'}</h4>
+                <div className="price-row">
+                  <span className="price">${typeof p?.price === 'number' ? p.price.toFixed(2) : '0.00'}</span>
+                  {p?.discount > 0 && <span className="badge-sale">-{p.discount}%</span>}
                 </div>
               </div>
-            ))}
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            marginTop: '50px'
-          }}>
-            <Link to="/products" style={{
-              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-              color: 'white',
-              padding: '16px 32px',
-              borderRadius: '12px',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              textDecoration: 'none',
-              boxShadow: '0 10px 25px rgba(5, 150, 105, 0.3)'
-            }}>
-              View All Products
             </Link>
-          </div>
+          ))}
         </div>
       </section>
 

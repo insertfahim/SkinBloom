@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import API from '../auth'
+import Button from '../components/Button'
 
 export default function Products() {
   const [products, setProducts] = useState([])
@@ -127,84 +128,36 @@ export default function Products() {
   return (
     <div style={{ minHeight: '100vh', background: '#ffffff' }}>
       {/* Header */}
-      <div style={{
-        background: '#f8f9fa',
-        borderBottom: '1px solid #e9ecef',
-        padding: '20px 0'
-      }}>
-        <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-            <div>
-              <h1 style={{ fontSize: '24px', margin: '0', color: '#2d3748' }}>
-                Skincare Products
-              </h1>
-              <p style={{ fontSize: '14px', color: '#718096', margin: '4px 0 0 0' }}>
-                Showing {products.length} of {pagination.total} products
-              </p>
-            </div>
-            
-            {/* Cart Info */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px'
-            }}>
-              <Link
-                to="/cart"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  background: '#fff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  textDecoration: 'none',
-                  color: '#2d3748',
-                  fontSize: '14px'
-                }}
-              >
-                🛒 Cart ({cart.totalItems || 0})
-              </Link>
-            </div>
+      <div className="products-header-bar">
+        <div className="products-header-inner">
+          <div className="products-header-left">
+            <h1>Skincare Products</h1>
+            <p>Showing {products.length} of {pagination.total} products</p>
+          </div>
+          <div className="products-header-right">
+            <Link to="/cart" className="cart-chip">🛒 Cart ({cart.totalItems || 0})</Link>
           </div>
         </div>
       </div>
 
-      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '30px 20px' }}>
+      <div className="products-shell">
         {/* Filters */}
-        <div style={{
-          background: '#fff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          padding: '20px',
-          marginBottom: '30px'
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        <div className="filters-panel">
+          <div className="filters-grid">
             <input
               className="input"
               type="text"
               placeholder="Search products..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              style={{
-                padding: '10px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ padding: '10px 12px' }}
             />
             
             <select
               className="input"
               value={filters.category}
               onChange={(e) => handleFilterChange('category', e.target.value)}
-              style={{
-                padding: '10px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ padding: '10px 12px' }}
             >
               <option value="">All Categories</option>
               <option value="Cleanser">Cleanser</option>
@@ -219,12 +172,7 @@ export default function Products() {
               className="input"
               value={filters.skinType}
               onChange={(e) => handleFilterChange('skinType', e.target.value)}
-              style={{
-                padding: '10px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ padding: '10px 12px' }}
             >
               <option value="">All Skin Types</option>
               <option value="All">All Skin Types</option>
@@ -239,12 +187,7 @@ export default function Products() {
               className="input"
               value={filters.sortBy}
               onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              style={{
-                padding: '10px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ padding: '10px 12px' }}
             >
               <option value="popular">Most Popular</option>
               <option value="rating">Highest Rated</option>
@@ -255,20 +198,14 @@ export default function Products() {
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="price-row-inline">
             <input
               className="input"
               type="number"
               placeholder="Min price"
               value={filters.priceMin}
               onChange={(e) => handleFilterChange('priceMin', e.target.value)}
-              style={{
-                width: '120px',
-                padding: '8px 10px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ width: '120px' }}
             />
             <span style={{ color: '#718096' }}>-</span>
             <input
@@ -277,28 +214,11 @@ export default function Products() {
               placeholder="Max price"
               value={filters.priceMax}
               onChange={(e) => handleFilterChange('priceMax', e.target.value)}
-              style={{
-                width: '120px',
-                padding: '8px 10px',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
+              style={{ width: '120px' }}
             />
-            <button
-              onClick={resetFilters}
-              style={{
-                padding: '8px 16px',
-                background: '#f7fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                color: '#4a5568',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
+            <Button variant="secondary" size="sm" onClick={resetFilters}>
               Clear Filters
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -317,12 +237,7 @@ export default function Products() {
         )}
 
         {/* Products Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '20px',
-          marginBottom: '40px'
-        }}>
+  <div className="products-grid-full">
           {products.map(product => (
             <ProductCard
               key={product._id}
@@ -347,9 +262,7 @@ export default function Products() {
             <p style={{ color: 'var(--muted)', marginBottom: '20px' }}>
               Try adjusting your filters or search terms
             </p>
-            <button className="btn" onClick={resetFilters}>
-              Clear All Filters
-            </button>
+            <Button onClick={resetFilters}>Clear All Filters</Button>
           </div>
         )}
 
@@ -392,6 +305,24 @@ export default function Products() {
           </div>
         )}
       </div>
+      {/* Full width styles */}
+      <style>{`
+        .products-header-bar {background:#f8f9fa;border-bottom:1px solid #e9ecef;padding:18px 0;margin:0 0 8px 0;}
+        .products-header-inner {max-width:1800px;margin:0 auto;padding:0 40px;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;}
+        .products-header-left h1 {font-size:28px;margin:0;color:#1f2937;font-weight:700;}
+        .products-header-left p {margin:4px 0 0 0;font-size:14px;color:#64748b;}
+        .cart-chip {background:#ffffff;border:1px solid #e2e8f0;padding:10px 18px;border-radius:8px;font-size:14px;text-decoration:none;color:#1f2937;font-weight:500;display:flex;align-items:center;gap:6px;}
+        .products-shell {width:100%;max-width:1900px;margin:0 auto;padding:10px 40px 60px;}
+        .filters-panel {background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px 28px;margin:0 0 32px 0;}
+        .filters-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin:0 0 16px 0;}
+        .filters-panel .input {border:1px solid #e2e8f0;border-radius:8px;font-size:14px;background:#f9fafb;}
+        .filters-panel .input:focus {outline:2px solid #3b82f6;background:#fff;}
+        .price-row-inline {display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+        .products-grid-full {display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:28px;margin:0 0 40px;}
+        @media (min-width:1600px){ .products-grid-full {grid-template-columns:repeat(auto-fill,minmax(260px,1fr));} }
+        @media (max-width:900px){ .products-header-inner{padding:0 20px;} .products-shell{padding:10px 20px 60px;} }
+        @media (max-width:600px){ .filters-panel{padding:20px;} .products-grid-full{gap:20px;} }
+      `}</style>
     </div>
   )
 }
