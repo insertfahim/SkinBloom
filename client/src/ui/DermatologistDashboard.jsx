@@ -108,13 +108,16 @@ export default function DermatologistDashboard() {
   };
 
   const loadUserProfile = async (userId) => {
+    console.log('Loading user profile for userId:', userId);
     setLoadingProfile(true);
     try {
-      const { data } = await API.get(`/profile/user/${userId}`);
-      setSelectedUserProfile(data);
+      const response = await API.get(`/profile/user/${userId}`);
+      console.log('Profile response:', response);
+      setSelectedUserProfile(response.data);
     } catch (error) {
       console.error('Error loading user profile:', error);
-      alert('Failed to load user profile');
+      console.error('Error response:', error.response);
+      alert(`Failed to load user profile: ${error.response?.data?.error || error.message}`);
     } finally {
       setLoadingProfile(false);
     }

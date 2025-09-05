@@ -31,18 +31,22 @@ r.get('/', authRequired, async (req, res) => {
 r.get('/user/:userId', dermatologistRequired, async (req, res) => {
     try {
         const { userId } = req.params
+        console.log('Dermatologist profile request for userId:', userId)
+        console.log('Requesting user role:', req.user?.role)
         
         // Get user basic info
         const user = await User.findById(userId).select('name email role createdAt')
+        console.log('Found user:', user)
         if (!user) {
             return res.status(404).json({ error: 'User not found' })
         }
         
         // Get user's skin profile
         const profile = await Profile.findOne({ userId }).select('photo age gender skinType concerns allergies notes consultationPhotos')
+        console.log('Found profile:', profile)
         
         // Return limited profile info for dermatologist consultation
-        res.json({
+        const response = {
             user: {
                 _id: user._id,
                 name: user.name,
@@ -59,7 +63,9 @@ r.get('/user/:userId', dermatologistRequired, async (req, res) => {
                 notes: profile.notes,
                 consultationPhotos: profile.consultationPhotos
             } : null
-        })
+        }
+        console.log('Sending response:', response)
+        res.json(response)
     } catch (error) {
         console.error('Error fetching user profile for dermatologist:', error)
         res.status(500).json({ error: error.message })
