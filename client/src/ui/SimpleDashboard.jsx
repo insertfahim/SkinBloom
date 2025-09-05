@@ -81,9 +81,8 @@ export default function SimpleDashboard() {
                         className="hero-art hero-art--image"
                         aria-hidden="true"
                     >
-                        <div className="hero-art-bg hero-art-overlay soft-left-fade" />
                         <img
-                            src="../category images/53f327ff-40e1-4ead-9443-b5ed9f9ce923.jpg"
+                            src="../category images/eb9f1214-559d-4a62-b7ca-166303c53d99.jpg"
                             alt="Minimal skincare products with branch shadow"
                             className="hero-art-img"
                             onError={(e) => {
