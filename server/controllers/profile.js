@@ -15,29 +15,58 @@ export async function upsertProfile(req, res) {
       consultationPhotos,
       dermatologistRecommended,
       notes,
-      photo
+  photo,
+  qualification
     } = req.body;
 
-    // Validate required fields
-    if (!skinType || !age || !gender) {
-      return res.status(400).json({
-        error: 'Skin type, age, and gender are required'
-      });
+    // Validate required fields based on user role
+    let profileData;
+    
+    if (req.user.role === 'dermatologist') {
+      // For dermatologists: only age, gender, and qualification are required
+      if (!age || !gender) {
+        return res.status(400).json({
+          error: 'Age and gender are required for dermatologist profile'
+        });
+      }
+      
+      // Create simplified dermatologist profile
+      profileData = {
+        userId: req.user.id,
+        skinType: 'normal', // Default for dermatologists
+        age: parseInt(age),
+        gender: gender,
+        allergies: [], // Not used for dermatologists
+        concerns: [], // Not used for dermatologists
+        skinGoals: [], // Not used for dermatologists
+        dermatologistRecommended: false,
+        notes: notes || '',
+        photo: photo || '',
+        qualification: qualification || ''
+      };
+    } else {
+      // For regular users: skinType, age, and gender are required
+      if (!skinType || !age || !gender) {
+        return res.status(400).json({
+          error: 'Skin type, age, and gender are required'
+        });
+      }
+      
+      // Create full user profile
+      profileData = {
+        userId: req.user.id,
+        skinType: skinType,
+        age: parseInt(age),
+        gender: gender,
+        allergies: Array.isArray(allergies) ? allergies : [],
+        concerns: Array.isArray(concerns) ? concerns : [],
+        skinGoals: Array.isArray(skinGoals) ? skinGoals : [],
+        dermatologistRecommended: Boolean(dermatologistRecommended),
+        notes: notes || '',
+        photo: photo || '',
+        qualification: qualification || ''
+      };
     }
-
-    // Create a clean profile data object (removed currentProducts)
-    const profileData = {
-      userId: req.user.id,
-      skinType: skinType,
-      age: parseInt(age),
-      gender: gender,
-      allergies: Array.isArray(allergies) ? allergies : [],
-      concerns: Array.isArray(concerns) ? concerns : [],
-      skinGoals: Array.isArray(skinGoals) ? skinGoals : [],
-      dermatologistRecommended: Boolean(dermatologistRecommended),
-      notes: notes || '',
-      photo: photo || ''
-    };
 
     // Handle consultationPhotos
     if (consultationPhotos && Array.isArray(consultationPhotos)) {

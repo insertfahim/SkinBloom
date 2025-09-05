@@ -42,7 +42,7 @@ r.get('/user/:userId', dermatologistRequired, async (req, res) => {
         }
         
         // Get user's skin profile
-        const profile = await Profile.findOne({ userId }).select('photo age gender skinType concerns allergies notes consultationPhotos')
+    const profile = await Profile.findOne({ userId }).select('photo age gender skinType concerns allergies notes consultationPhotos qualification')
         console.log('Found profile:', profile)
         
         // Return limited profile info for dermatologist consultation
@@ -59,6 +59,7 @@ r.get('/user/:userId', dermatologistRequired, async (req, res) => {
                 gender: profile.gender,
                 skinType: profile.skinType,
                 concerns: profile.concerns,
+                qualification: profile.qualification,
                 allergies: profile.allergies,
                 notes: profile.notes,
                 consultationPhotos: profile.consultationPhotos

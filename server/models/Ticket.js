@@ -12,6 +12,16 @@ const TicketSchema = new mongoose.Schema({
   previousTreatments: String,
   allergies: String,
   
+  // Consultation preferences
+  consultationType: { 
+    type: String, 
+    enum: ['photo_review', 'video_call', 'follow_up'], 
+    default: 'photo_review' 
+  },
+  preferredDermatologist: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  preferredSlot: String,
+  urgency: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  
   // Photos
   photos: [{
     url: String,
@@ -52,6 +62,10 @@ const TicketSchema = new mongoose.Schema({
     isSystemMessage: { type: Boolean, default: false }
   }],
   
+  // Related booking and consultation
+  booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
+  consultation: { type: mongoose.Schema.Types.ObjectId, ref: 'Consultation' },
+  
   // PDF generation
   consultationPdfUrl: String,
   paymentReceiptUrl: String,
@@ -86,5 +100,7 @@ TicketSchema.index({ user: 1, status: 1 })
 TicketSchema.index({ dermatologist: 1, status: 1 })
 TicketSchema.index({ createdAt: -1 })
 TicketSchema.index({ paymentStatus: 1, status: 1 })
+TicketSchema.index({ consultationType: 1 })
+TicketSchema.index({ urgency: 1, priority: 1 })
 
 export default mongoose.model('Ticket', TicketSchema)

@@ -43,29 +43,51 @@ export async function createTicket(req, res) {
       duration,
       previousTreatments,
       allergies,
-      photos
+      photos,
+      consultationType,
+      preferredDermatologist,
+      preferredSlot,
+      urgency
     } = req.body
 
     // Validate required fields
-    if (!concern || !photos || photos.length === 0) {
+    if (!concern) {
       return res.status(400).json({ 
-        error: 'Concern description and at least one photo are required' 
+        error: 'Concern description is required' 
       })
     }
+
+    // For photo reviews, at least one photo is required
+    if (consultationType === 'photo_review' && (!photos || photos.length === 0)) {
+      return res.status(400).json({ 
+        error: 'At least one photo is required for photo review consultations' 
+      })
+    }
+
+    // Set consultation fee based on type
+    let consultationFee = 50; // default for photo_review
+    if (consultationType === 'video_call') consultationFee = 100;
+    if (consultationType === 'follow_up') consultationFee = 30;
 
     // Create the ticket
     const ticket = await Ticket.create({
       user: req.user.id,
       concern,
       skinType,
-      symptoms: Array.isArray(symptoms) ? symptoms : [symptoms],
+      symptoms: Array.isArray(symptoms) ? symptoms : (symptoms ? [symptoms] : []),
       duration,
       previousTreatments,
       allergies,
-      photos: photos.map(photo => ({
+      photos: photos ? photos.map(photo => ({
         url: photo.url,
         description: photo.description || ''
-      })),
+      })) : [],
+      consultationType: consultationType || 'photo_review',
+      preferredDermatologist: preferredDermatologist || null,
+      preferredSlot: preferredSlot || null,
+      urgency: urgency || 'medium',
+      priority: urgency || 'medium',
+      consultationFee,
       status: 'submitted'
     })
 
@@ -77,7 +99,7 @@ export async function createTicket(req, res) {
       req.user.id,
       'ticket_submitted',
       'Consultation Request Submitted',
-      `Your skin concern consultation has been submitted successfully. Ticket ID: ${ticket._id}`,
+      `Your ${consultationType?.replace('_', ' ') || 'photo review'} consultation has been submitted successfully. Ticket ID: ${ticket._id}`,
       { 
         ticket: ticket._id,
         actionRequired: true,
@@ -86,14 +108,25 @@ export async function createTicket(req, res) {
       }
     )
 
-    // Notify available dermatologists
-    const dermatologists = await User.find({ role: 'dermatologist', isActive: true })
+    // Notify preferred dermatologist or all available dermatologists
+    let dermatologists = []
+    if (preferredDermatologist) {
+      const preferredDerm = await User.findById(preferredDermatologist)
+      if (preferredDerm && preferredDerm.role === 'dermatologist' && preferredDerm.isActive) {
+        dermatologists = [preferredDerm]
+      }
+    }
+    
+    if (dermatologists.length === 0) {
+      dermatologists = await User.find({ role: 'dermatologist', isActive: true })
+    }
+
     for (const derm of dermatologists) {
       await createNotification(
         derm._id,
         'ticket_submitted',
         'New Consultation Request',
-        `A new skin concern consultation has been submitted by ${ticket.user.name}`,
+        `A new ${consultationType?.replace('_', ' ') || 'photo review'} consultation has been submitted by ${ticket.user.name}`,
         { 
           ticket: ticket._id,
           sender: req.user.id,
@@ -860,6 +893,7 @@ export async function getDermatologistTickets(req, res) {
       return {
         _id: t._id,
         concern: t.concern,
+    symptoms: t.symptoms || [],
         status: statusMap[t.status] || t.status,
         rawStatus: t.status,
         priority: t.priority,
@@ -874,7 +908,9 @@ export async function getDermatologistTickets(req, res) {
             profile: profile ? {
               age: profile.age,
               gender: profile.gender,
-              photo: profile.photo
+      photo: profile.photo,
+      concerns: profile.concerns,
+      qualification: profile.qualification
             } : null
         } : null,
         dermatologist: t.dermatologist ? {
@@ -930,8 +966,12 @@ export async function downloadConsultationPDF(req, res) {
       .populate('user', 'name email')
       .populate('dermatologist', 'name')
 
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' })
-    if (!ticket.consultation) return res.status(404).json({ error: 'No consultation found' })
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' })
+    }
+    if (!ticket.consultation) {
+      return res.status(404).json({ error: 'No consultation found' })
+    }
 
     // Check access
     if (ticket.user._id.toString() !== req.user.id && req.user.role !== 'dermatologist') {
@@ -1002,8 +1042,12 @@ export async function downloadPaymentReceiptPDF(req, res) {
     const ticket = await Ticket.findById(req.params.id)
       .populate('user', 'name email')
 
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' })
-    if (ticket.paymentStatus !== 'completed') return res.status(404).json({ error: 'Payment not completed' })
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' })
+    }
+    if (ticket.paymentStatus !== 'completed') {
+      return res.status(404).json({ error: 'Payment not completed' })
+    }
 
     // Check access
     if (ticket.user._id.toString() !== req.user.id) {

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
+import Profile from '../models/Profile.js'
 
 export async function register(req,res){
   try{
@@ -76,5 +77,40 @@ export async function updateUserRole(req, res) {
     res.json({ message: 'User role updated successfully', user })
   } catch (e) {
     res.status(500).json({ error: e.message })
+  }
+}
+
+// Get all active dermatologists
+export async function getDermatologists(req, res) {
+  try {
+    const dermatologists = await User.find({ 
+      role: 'dermatologist', 
+      isActive: true 
+    })
+    .select('-password')
+    
+    // Get profiles for dermatologists
+    const dermatologistIds = dermatologists.map(d => d._id)
+    const profiles = await Profile.find({ userId: { $in: dermatologistIds } })
+    const profileMap = new Map(profiles.map(p => [p.userId.toString(), p]))
+    
+    const enrichedDermatologists = dermatologists.map(derm => ({
+      _id: derm._id,
+      name: derm.name,
+      email: derm.email,
+      role: derm.role,
+      specialization: derm.specialization,
+      yearsOfExperience: derm.yearsOfExperience,
+      consultationFee: derm.consultationFee,
+      rating: derm.rating,
+      bio: derm.bio,
+      availability: derm.availability,
+      profile: profileMap.get(derm._id.toString()) || null
+    }))
+    
+    res.json({ dermatologists: enrichedDermatologists })
+  } catch (error) {
+    console.error('Error getting dermatologists:', error)
+    res.status(500).json({ error: error.message })
   }
 }

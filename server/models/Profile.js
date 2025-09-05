@@ -11,6 +11,12 @@ const ProfileSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  // Professional qualification (for dermatologists)
+  qualification: {
+    type: String,
+    maxlength: 150,
+    default: ''
+  },
   consultationPhotos: [{
     url: String,
     uploadDate: { type: Date, default: Date.now },
@@ -20,7 +26,7 @@ const ProfileSchema = new mongoose.Schema({
   skinType: {
     type: String,
     enum: ['oily', 'dry', 'combination', 'sensitive', 'normal'],
-    required: true
+    default: 'normal'
   },
   age: {
     type: Number,
