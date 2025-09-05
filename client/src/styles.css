@@ -1754,3 +1754,69 @@ textarea:focus {
         grid-template-columns: 1fr;
     }
 }
+
+/* --- Trending Products grid: fixed columns like the design --- */
+.trending-products .product-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+    align-items: stretch;
+    justify-items: stretch;
+}
+@media (max-width: 1200px) {
+    .trending-products .product-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+    .trending-products .product-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+    .trending-products .product-grid { grid-template-columns: 1fr; }
+}
+
+/* Ensure cards don’t over-inflate in single-item scenarios */
+.trending-products .product-card { width: 100%; }
+
+/* --- Button fixes (override collisions and ensure readability) --- */
+/* Use higher specificity and !important sparingly to unify button visuals */
+.navbar .btn,
+.hero-ctas .btn,
+.btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    line-height: 1.2 !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+}
+
+/* Solid primary button */
+.btn.primary {
+    background: var(--primary-color) !important;
+    color: #fff !important;
+    border: none !important;
+}
+.btn.primary:hover { background: var(--primary-dark) !important; }
+
+/* Ghost/outline button with clear contrast on light backgrounds */
+.btn.ghost {
+    background: #fff !important;
+    color: var(--primary-color) !important;
+    border: 2px solid var(--primary-color) !important;
+    box-shadow: none !important;
+}
+.btn.ghost:hover {
+    background: var(--primary-color) !important;
+    color: #fff !important;
+}
+
+/* Header-specific: keep ghost subtle but visible on white header */
+.header .navbar .btn.ghost {
+    background: transparent !important;
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Size helpers (ensure they stick) */
+.btn.sm { padding: 8px 14px !important; font-size: 12px !important; }
+.btn.lg { padding: 16px 28px !important; font-size: 16px !important; }

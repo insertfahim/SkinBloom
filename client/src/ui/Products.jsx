@@ -267,7 +267,7 @@ export default function Products() {
                 )}
 
                 {/* Products Grid */}
-                <div className="products-grid-full">
+                <div className="products-grid-full compact-grid">
                     {products.map((product) => (
                         <ProductCard
                             key={product._id}
@@ -275,6 +275,7 @@ export default function Products() {
                             isInWishlist={wishlist.includes(product._id)}
                             onToggleWishlist={() => toggleWishlist(product._id)}
                             onAddToCart={() => addToCart(product._id)}
+                            compact
                         />
                     ))}
                 </div>
@@ -385,8 +386,12 @@ export default function Products() {
         .filters-panel .input {border:1px solid #e2e8f0;border-radius:8px;font-size:14px;background:#f9fafb;}
         .filters-panel .input:focus {outline:2px solid #3b82f6;background:#fff;}
         .price-row-inline {display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
-        .products-grid-full {display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:28px;margin:0 0 40px;}
-        @media (min-width:1600px){ .products-grid-full {grid-template-columns:repeat(auto-fill,minmax(260px,1fr));} }
+    .products-grid-full {display:grid;gap:36px;margin:0 0 40px;}
+    .products-grid-full.compact-grid {grid-template-columns: repeat(5, 1fr);} 
+    @media (max-width: 1400px){ .products-grid-full.compact-grid {grid-template-columns: repeat(4, 1fr);} }
+    @media (max-width: 1100px){ .products-grid-full.compact-grid {grid-template-columns: repeat(3, 1fr);} }
+    @media (max-width: 800px){ .products-grid-full.compact-grid {grid-template-columns: repeat(2, 1fr);} }
+    @media (max-width: 520px){ .products-grid-full.compact-grid {grid-template-columns: 1fr;} }
         @media (max-width:900px){ .products-header-inner{padding:0 20px;} .products-shell{padding:10px 20px 60px;} }
         @media (max-width:600px){ .filters-panel{padding:20px;} .products-grid-full{gap:20px;} }
       `}</style>
@@ -394,7 +399,7 @@ export default function Products() {
     );
 }
 
-function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
+function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart, compact=false }) {
     const discountedPrice =
         product.discount > 0
             ? product.price * (1 - product.discount / 100)
@@ -402,23 +407,34 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
 
     const [imageError, setImageError] = useState(false);
 
+    const cardBase = compact ? {
+        background: "#fff",
+        border: "1px solid #f1f5f9",
+        borderRadius: "18px",
+        overflow: "hidden",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
+        cursor: "pointer",
+        boxShadow: "0 14px 32px -12px rgba(0,0,0,0.10)",
+    } : {
+        background: "#fff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "8px",
+        overflow: "hidden",
+        transition: "all 0.2s ease",
+        cursor: "pointer",
+    };
+
     return (
         <div
-            style={{
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                borderRadius: "8px",
-                overflow: "hidden",
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-            }}
+            className={compact ? 'product-card-c' : undefined}
+            style={cardBase}
             onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 8px 25px rgba(0,0,0,0.1)";
+                e.currentTarget.style.transform = "translateY(-4px)";
+                e.currentTarget.style.boxShadow = compact ? "0 26px 46px -18px rgba(0,0,0,0.18)" : "0 8px 25px rgba(0,0,0,0.1)";
             }}
             onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
+                e.currentTarget.style.boxShadow = compact ? "0 14px 32px -12px rgba(0,0,0,0.10)" : "none";
             }}
         >
             {/* Product Image */}
@@ -428,11 +444,11 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
             >
                 <div
                     style={{
-                        height: "240px",
+                        height: compact ? "220px" : "240px",
                         background: imageError
-                            ? "#f7fafc"
-                            : `url(${product.image}) center/cover`,
-                        backgroundColor: "#f7fafc",
+                            ? "#f8fafc"
+                            : `url(${product.image}) center/contain no-repeat`,
+                        backgroundColor: "#f8fafc",
                         position: "relative",
                         overflow: "hidden",
                         display: "flex",
@@ -536,47 +552,11 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                         {isInWishlist ? "❤️" : "🤍"}
                     </button>
 
-                    {/* Quick Add Overlay */}
-                    <div
-                        style={{
-                            position: "absolute",
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            background:
-                                "linear-gradient(transparent, rgba(0,0,0,0.7))",
-                            padding: "20px 16px 16px",
-                            transform: "translateY(100%)",
-                            transition: "transform 0.3s ease",
-                            opacity: 0,
-                        }}
-                        className="quick-add-overlay"
-                    >
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onAddToCart();
-                            }}
-                            style={{
-                                width: "100%",
-                                padding: "10px",
-                                background: "white",
-                                border: "none",
-                                borderRadius: "6px",
-                                color: "#2d3748",
-                                fontSize: "14px",
-                                fontWeight: "600",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Quick Add to Cart
-                        </button>
-                    </div>
+            {/* Quick Add removed for compact grid */}
                 </div>
             </Link>
 
-            <div style={{ padding: "16px" }}>
+        <div style={{ padding: compact ? "14px" : "16px" }}>
                 <Link
                     to={`/products/${product._id}`}
                     style={{ textDecoration: "none", color: "inherit" }}
@@ -597,36 +577,38 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                     {/* Product Name */}
                     <h3
                         style={{
-                            fontSize: "14px",
-                            fontWeight: "600",
-                            lineHeight: "1.3",
+                            fontSize: compact ? "13px" : "14px",
+                            fontWeight: 600,
+                            lineHeight: 1.3,
                             margin: "0 0 8px 0",
-                            color: "#2d3748",
-                            height: "36px",
+                            color: "#111827",
+                            minHeight: compact ? "34px" : "36px",
                             overflow: "hidden",
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: "vertical",
+                            textTransform: "capitalize",
                         }}
                     >
                         {product.name}
                     </h3>
 
-                    {/* Category */}
-                    <div style={{ marginBottom: "8px" }}>
-                        <span
-                            style={{
-                                background: "#edf2f7",
-                                color: "#4a5568",
-                                padding: "2px 8px",
-                                borderRadius: "12px",
-                                fontSize: "11px",
-                                fontWeight: "500",
-                            }}
-                        >
-                            {product.category}
-                        </span>
-                    </div>
+                    {!compact && (
+                        <div style={{ marginBottom: "8px" }}>
+                            <span
+                                style={{
+                                    background: "#edf2f7",
+                                    color: "#4a5568",
+                                    padding: "2px 8px",
+                                    borderRadius: "12px",
+                                    fontSize: "11px",
+                                    fontWeight: "500",
+                                }}
+                            >
+                                {product.category}
+                            </span>
+                        </div>
+                    )}
 
                     {/* Rating */}
                     <div
@@ -634,7 +616,8 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                             display: "flex",
                             alignItems: "center",
                             gap: "4px",
-                            marginBottom: "8px",
+                            marginBottom: compact ? "6px" : "8px",
+                            minHeight: "16px",
                         }}
                     >
                         <div style={{ display: "flex", alignItems: "center" }}>
@@ -644,7 +627,7 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                                     style={{
                                         color:
                                             star <= Math.floor(product.rating)
-                                                ? "#fbbf24"
+                                                ? "#f59e0b"
                                                 : "#e5e7eb",
                                         fontSize: "12px",
                                     }}
@@ -653,13 +636,13 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                                 </span>
                             ))}
                         </div>
-                        <span style={{ fontSize: "12px", color: "#718096" }}>
+                        <span style={{ fontSize: "12px", color: "#9ca3af" }}>
                             ({product.reviewCount || 0})
                         </span>
                     </div>
 
                     {/* Price */}
-                    <div style={{ marginBottom: "12px" }}>
+                    <div style={{ marginBottom: compact ? "10px" : "12px" }}>
                         <div
                             style={{
                                 display: "flex",
@@ -669,99 +652,140 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                         >
                             <span
                                 style={{
-                                    fontSize: "16px",
-                                    fontWeight: "700",
-                                    color: "#2d3748",
+                                    fontSize: compact ? "16px" : "16px",
+                                    fontWeight: 700,
+                                    color: "#059669",
                                 }}
                             >
                                 ${discountedPrice.toFixed(2)}
                             </span>
                             {product.discount > 0 && (
-                                <span
-                                    style={{
-                                        fontSize: "14px",
-                                        color: "#a0aec0",
-                                        textDecoration: "line-through",
-                                    }}
-                                >
-                                    ${product.price.toFixed(2)}
-                                </span>
+                                <>
+                                    {!compact && (
+                                        <span
+                                            style={{
+                                                fontSize: "14px",
+                                                color: "#a0aec0",
+                                                textDecoration: "line-through",
+                                            }}
+                                        >
+                                            ${product.price.toFixed(2)}
+                                        </span>
+                                    )}
+                                    <span
+                                        style={{
+                                            fontSize: "11px",
+                                            background: "#eab308",
+                                            color: "#111827",
+                                            padding: "2px 8px",
+                                            borderRadius: "999px",
+                                            fontWeight: 700,
+                                            lineHeight: 1,
+                                        }}
+                                    >
+                                        -{product.discount}%
+                                    </span>
+                                </>
                             )}
                         </div>
-                        {product.discount > 0 && (
+                        {!compact && product.discount > 0 && (
                             <div
                                 style={{
                                     fontSize: "11px",
                                     color: "#38a169",
-                                    fontWeight: "600",
+                                    fontWeight: 600,
                                 }}
                             >
-                                Save $
-                                {(product.price - discountedPrice).toFixed(2)}
+                                Save ${
+                                    (product.price - discountedPrice).toFixed(2)
+                                }
                             </div>
                         )}
                     </div>
                 </Link>
 
                 {/* Action Buttons */}
-                <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                        onClick={onAddToCart}
-                        disabled={!product.inStock}
-                        style={{
-                            flex: 1,
-                            padding: "10px",
-                            background: product.inStock ? "#3182ce" : "#a0aec0",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "6px",
-                            fontSize: "13px",
-                            fontWeight: "600",
-                            cursor: product.inStock ? "pointer" : "not-allowed",
-                            transition: "background 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                            if (product.inStock) {
-                                e.currentTarget.style.background = "#2c5aa0";
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (product.inStock) {
-                                e.currentTarget.style.background = "#3182ce";
-                            }
-                        }}
-                    >
-                        {product.inStock ? "Add to Cart" : "Out of Stock"}
-                    </button>
+                {compact ? (
+                    <div className="hover-add" style={{ marginTop: 8 }}>
+                        <button
+                            onClick={onAddToCart}
+                            disabled={!product.inStock}
+                            style={{
+                                width: "100%",
+                                padding: "10px",
+                                background: product.inStock ? "#10b981" : "#a0aec0",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "8px",
+                                fontSize: "13px",
+                                fontWeight: 700,
+                                cursor: product.inStock ? "pointer" : "not-allowed",
+                                transition: "transform 0.2s ease, background 0.2s ease",
+                            }}
+                        >
+                            {product.inStock ? "Add to cart" : "Out of stock"}
+                        </button>
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                            onClick={onAddToCart}
+                            disabled={!product.inStock}
+                            style={{
+                                flex: 1,
+                                padding: "10px",
+                                background: product.inStock ? "#3182ce" : "#a0aec0",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "6px",
+                                fontSize: "13px",
+                                fontWeight: "600",
+                                cursor: product.inStock ? "pointer" : "not-allowed",
+                                transition: "background 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                                if (product.inStock) {
+                                    e.currentTarget.style.background = "#2c5aa0";
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (product.inStock) {
+                                    e.currentTarget.style.background = "#3182ce";
+                                }
+                            }}
+                        >
+                            {product.inStock ? "Add to Cart" : "Out of Stock"}
+                        </button>
 
-                    <Link
-                        to={`/products/${product._id}`}
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            width: "40px",
-                            height: "40px",
-                            background: "#f7fafc",
-                            border: "1px solid #e2e8f0",
-                            borderRadius: "6px",
-                            color: "#4a5568",
-                            textDecoration: "none",
-                            fontSize: "16px",
-                            transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = "#edf2f7";
-                            e.currentTarget.style.borderColor = "#cbd5e0";
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = "#f7fafc";
-                            e.currentTarget.style.borderColor = "#e2e8f0";
-                        }}
-                    >
-                        👁️
-                    </Link>
-                </div>
+                        <Link
+                            to={`/products/${product._id}`}
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "40px",
+                                height: "40px",
+                                background: "#f7fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "6px",
+                                color: "#4a5568",
+                                textDecoration: "none",
+                                fontSize: "16px",
+                                transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "#edf2f7";
+                                e.currentTarget.style.borderColor = "#cbd5e0";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = "#f7fafc";
+                                e.currentTarget.style.borderColor = "#e2e8f0";
+                            }}
+                        >
+                            👁️
+                        </Link>
+                    </div>
+                )}
 
                 {/* Stock Status */}
                 {product.inStock && product.stockQuantity <= 10 && (
@@ -778,16 +802,10 @@ function ProductCard({ product, isInWishlist, onToggleWishlist, onAddToCart }) {
                 )}
             </div>
 
-            <style jsx>{`
-                .quick-add-overlay {
-                    transform: translateY(100%);
-                    opacity: 0;
-                }
-
-                div:hover .quick-add-overlay {
-                    transform: translateY(0);
-                    opacity: 1;
-                }
+            <style>{`
+                /* Hover add-to-cart reveal for compact cards */
+                .product-card-c .hover-add { opacity: 0; transform: translateY(6px); transition: all .18s ease; }
+                .product-card-c:hover .hover-add { opacity: 1; transform: translateY(0); }
             `}</style>
         </div>
     );

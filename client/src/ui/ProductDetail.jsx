@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import API from "../auth";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProductDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -16,12 +18,41 @@ export default function ProductDetail() {
     const [selectedImage, setSelectedImage] = useState(0);
     const [imageError, setImageError] = useState(false);
 
+    // Feedback state (inline review form)
+    const [fbLoading, setFbLoading] = useState(false);
+    const [fbSubmitting, setFbSubmitting] = useState(false);
+    const [myFeedback, setMyFeedback] = useState({ rating: 5, reaction: "neutral", note: "" });
+    const [hasExistingFeedback, setHasExistingFeedback] = useState(false);
+
     useEffect(() => {
         if (id) {
             fetchProduct();
             checkWishlistStatus();
         }
     }, [id]);
+
+    useEffect(() => {
+        // Load existing feedback for this product (current user)
+        if (!id || !user) return;
+        (async () => {
+            try {
+                setFbLoading(true);
+                const { data } = await API.get("/feedback");
+                const mine = (data || []).find((f) => (f.product?._id || f.product) === id);
+                if (mine) {
+                    setMyFeedback({ rating: mine.rating || 5, reaction: mine.reaction || "neutral", note: mine.note || "" });
+                    setHasExistingFeedback(true);
+                } else {
+                    setMyFeedback({ rating: 5, reaction: "neutral", note: "" });
+                    setHasExistingFeedback(false);
+                }
+            } catch (e) {
+                // Non-blocking
+            } finally {
+                setFbLoading(false);
+            }
+        })();
+    }, [id, user]);
 
     const fetchProduct = async () => {
         try {
@@ -708,6 +739,86 @@ export default function ProductDetail() {
                                     ? "❤️"
                                     : "🤍"}
                             </button>
+                        </div>
+
+                        {/* Your Review */}
+                        <div style={{ marginBottom: "28px" }}>
+                            <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: 12, color: "#111827" }}>
+                                {user ? "Your Review" : "Reviews"}
+                            </h3>
+                            {user ? (
+                                <div style={{ border: "1px solid #e5e7eb", background: "#fff", borderRadius: 12, padding: 16 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                        <span style={{ fontSize: 14, color: "#6b7280", minWidth: 100 }}>Overall rating</span>
+                                        <StarInput value={myFeedback.rating} onChange={(v) => setMyFeedback((s) => ({ ...s, rating: v }))} />
+                                        <span style={{ fontWeight: 700 }}>{myFeedback.rating}/5</span>
+                                    </div>
+
+                                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                                        {[
+                                            { v: "improvement", label: "✨ Improved" },
+                                            { v: "neutral", label: "😐 No change" },
+                                            { v: "irritation", label: "⚠️ Irritation" },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.v}
+                                                type="button"
+                                                onClick={() => setMyFeedback((s) => ({ ...s, reaction: opt.v }))}
+                                                className={"reaction-pill" + (myFeedback.reaction === opt.v ? " active" : "")}
+                                                style={{
+                                                    border: "1px solid #e5e7eb",
+                                                    background: myFeedback.reaction === opt.v ? "#ecfdf5" : "#fff",
+                                                    color: myFeedback.reaction === opt.v ? "#065f46" : "#374151",
+                                                    padding: "6px 10px",
+                                                    borderRadius: 999,
+                                                    fontSize: 13,
+                                                    fontWeight: 600,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <textarea
+                                        value={myFeedback.note}
+                                        onChange={(e) => setMyFeedback((s) => ({ ...s, note: e.target.value }))}
+                                        rows={3}
+                                        placeholder="Share a few details about your experience…"
+                                        style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, fontSize: 14, resize: "vertical", marginBottom: 12 }}
+                                    />
+
+                                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                                        <button
+                                            className="btn"
+                                            disabled={fbSubmitting}
+                                            onClick={async () => {
+                                                try {
+                                                    setFbSubmitting(true);
+                                                    await API.post("/feedback", { product: id, ...myFeedback });
+                                                    setHasExistingFeedback(true);
+                                                    alert("Review saved");
+                                                } catch (e) {
+                                                    alert(e.response?.data?.error || "Failed to save review");
+                                                } finally {
+                                                    setFbSubmitting(false);
+                                                }
+                                            }}
+                                        >
+                                            {fbSubmitting ? "Saving…" : hasExistingFeedback ? "Update Review" : "Submit Review"}
+                                        </button>
+                                        {hasExistingFeedback && <span style={{ color: "#6b7280", fontSize: 12 }}>Your review is visible only to you for now.</span>}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ border: "1px dashed #d1d5db", background: "#fff", borderRadius: 12, padding: 16 }}>
+                                    <p style={{ margin: 0, color: "#6b7280" }}>Please log in to write a review.</p>
+                                    <div style={{ marginTop: 12 }}>
+                                        <Link className="btn" to="/login">Login</Link>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Additional Info Tabs */}
