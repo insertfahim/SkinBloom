@@ -58,7 +58,7 @@ export default function Dashboard(){
               ) : (
                 <>
                   <Link to="/profile" className="btn primary">Complete Your Profile</Link>
-                  <Link to="/routine" className="btn ghost">Build Routine</Link>
+                  <Link to="/routine" className="btn primary">Build Routine</Link>
                 </>
               )}
             </div>
