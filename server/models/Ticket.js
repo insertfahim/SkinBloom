@@ -76,9 +76,15 @@ TicketSchema.virtual('consultationDuration').get(function() {
   return null
 })
 
+// Virtual payment status helper
+TicketSchema.virtual('isPaid').get(function() {
+  return this.paymentStatus === 'paid'
+})
+
 // Index for efficient queries
 TicketSchema.index({ user: 1, status: 1 })
 TicketSchema.index({ dermatologist: 1, status: 1 })
 TicketSchema.index({ createdAt: -1 })
+TicketSchema.index({ paymentStatus: 1, status: 1 })
 
 export default mongoose.model('Ticket', TicketSchema)

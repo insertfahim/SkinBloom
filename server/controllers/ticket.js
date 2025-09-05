@@ -3,6 +3,7 @@ import Consultation from '../models/Consultation.js'
 import Notification from '../models/Notification.js'
 import User from '../models/User.js'
 import Product from '../models/Product.js'
+import Profile from '../models/Profile.js'
 import Stripe from 'stripe'
 import PDFDocument from 'pdfkit'
 import fs from 'fs'
@@ -820,24 +821,92 @@ export async function getTicketById(req, res) {
 // Get dermatologist tickets
 export async function getDermatologistTickets(req, res) {
   try {
-    let query = {}
-    
-    // If not admin, only show tickets assigned to this dermatologist or unassigned
+    // Build query: Dermatologist sees tickets assigned to them OR unassigned newly submitted ones
+    // Admin sees everything.
+    const baseQuery = {}
     if (req.user.role !== 'admin') {
-      query = {
-        $or: [
-          { dermatologist: req.user.id },
-          { status: 'pending' }
-        ]
-      }
+      baseQuery.$or = [
+        { dermatologist: req.user.id },
+        { dermatologist: { $exists: false } },
+        { dermatologist: null }
+      ]
     }
 
-    const tickets = await Ticket.find(query)
-      .populate('user', 'name email')
-      .populate('dermatologist', 'name')
-      .sort({ urgency: -1, createdAt: -1 })
+    // Fetch tickets with minimal user info first
+    const tickets = await Ticket.find(baseQuery)
+      .populate('user', 'name role')
+      .populate('dermatologist', 'name role')
+      .sort({ priority: -1, createdAt: -1 })
 
-    res.json(tickets)
+    // Collect userIds for profile enrichment
+    const userIds = tickets.map(t => t.user?._id).filter(Boolean)
+    const profiles = await Profile.find({ userId: { $in: userIds } })
+      .select('userId age gender photo')
+    const profileMap = new Map(profiles.map(p => [p.userId.toString(), p]))
+
+    // Map backend statuses to simplified front-end statuses the dashboard expects
+    const statusMap = {
+      submitted: 'pending',
+      assigned: 'assigned',
+      in_review: 'in-consultation',
+      answered: 'consultation-provided',
+      solved: 'resolved',
+      paid: 'paid',
+      closed: 'closed'
+    }
+
+    const sanitized = tickets.map(t => {
+      const profile = t.user ? profileMap.get(t.user._id.toString()) : null
+      return {
+        _id: t._id,
+        concern: t.concern,
+        status: statusMap[t.status] || t.status,
+        rawStatus: t.status,
+        priority: t.priority,
+        paymentStatus: t.paymentStatus, // pending | paid | refunded
+  isPaid: t.paymentStatus === 'paid',
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        user: t.user ? {
+          _id: t.user._id,
+            name: t.user.name,
+            role: t.user.role,
+            profile: profile ? {
+              age: profile.age,
+              gender: profile.gender,
+              photo: profile.photo
+            } : null
+        } : null,
+        dermatologist: t.dermatologist ? {
+          _id: t.dermatologist._id,
+          name: t.dermatologist.name,
+          role: t.dermatologist.role
+        } : null,
+        photos: (t.photos || []).map(p => p.url),
+        diagnosis: t.diagnosis,
+        recommendations: t.recommendations,
+        recommendedProducts: (t.recommendedProducts || []).map(rp => ({
+          product: rp.product,
+          instructions: rp.instructions,
+          priority: rp.priority
+        }))
+      }
+    })
+
+    res.json({
+      tickets: sanitized,
+      meta: {
+        counts: {
+          pending: sanitized.filter(t => t.status === 'pending').length,
+          assigned: sanitized.filter(t => t.status === 'assigned').length,
+          inConsultation: sanitized.filter(t => t.status === 'in-consultation').length,
+          provided: sanitized.filter(t => t.status === 'consultation-provided').length,
+          resolved: sanitized.filter(t => t.status === 'resolved').length,
+          paid: sanitized.filter(t => t.status === 'paid').length
+        },
+        total: sanitized.length
+      }
+    })
   } catch (error) {
     console.error('Error getting dermatologist tickets:', error)
     res.status(500).json({ error: error.message })
