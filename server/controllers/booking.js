@@ -48,9 +48,11 @@ export async function getAvailableSlots(req, res) {
 
         // Get the day of week for the requested date
         const requestedDate = new Date(date);
-        const dayOfWeek = requestedDate.toLocaleDateString("en-US", {
-            weekday: "lowercase",
-        });
+        const dayOfWeek = requestedDate
+            .toLocaleDateString("en-US", {
+                weekday: "long",
+            })
+            .toLowerCase();
 
         // Get dermatologist's availability for that day
         const dayAvailability = dermatologist.availability?.[dayOfWeek] || [];
@@ -432,11 +434,9 @@ export async function startConsultation(req, res) {
         }
 
         if (booking.status !== "confirmed") {
-            return res
-                .status(400)
-                .json({
-                    error: "Booking must be confirmed to start consultation",
-                });
+            return res.status(400).json({
+                error: "Booking must be confirmed to start consultation",
+            });
         }
 
         // Update status
