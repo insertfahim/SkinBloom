@@ -159,6 +159,14 @@ root.render(
                     />
                     <Route path="payment/cancel" element={<PaymentCancel />} />
                     <Route
+                        path="bookings/:id/payment/success"
+                        element={
+                            <ProtectedRoute allowedRoles={["user"]}>
+                                <PaymentSuccess />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
                         path="test/buynow"
                         element={
                             <ProtectedRoute
