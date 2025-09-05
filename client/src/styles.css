@@ -176,27 +176,27 @@ body {
     transition: transform 0.3s;
 }
 .category-pill:nth-child(1) .cat-img {
-    background-image: url("../category images/4de24726-79c5-44dd-91af-0372fed9e7fd.jpg");
-    background-size: cover;
-    background-position: center;
-}
-.category-pill:nth-child(2) .cat-img {
-    background-image: url("../category images/5eccfbaa-5962-4346-811e-2746caa79007.jpg");
-    background-size: cover;
-    background-position: center;
-}
-.category-pill:nth-child(3) .cat-img {
-    background-image: url("../category images/8e7303fd-f41b-4972-8f8c-131982e89557.jpg");
-    background-size: cover;
-    background-position: center;
-}
-.category-pill:nth-child(4) .cat-img {
     background-image: url("../category images/95f88623-11ca-450d-ab4d-83fc09f15482.jpg");
     background-size: cover;
     background-position: center;
 }
-.category-pill:nth-child(5) .cat-img {
+.category-pill:nth-child(2) .cat-img {
+    background-image: url("../category images/4de24726-79c5-44dd-91af-0372fed9e7fd.jpg");
+    background-size: cover;
+    background-position: center;
+}
+.category-pill:nth-child(3) .cat-img {
     background-image: url("../category images/c53055cc-65c0-4eff-8f66-ad13da4d9137.jpg");
+    background-size: cover;
+    background-position: center;
+}
+.category-pill:nth-child(4) .cat-img {
+    background-image: url("../category images/5eccfbaa-5962-4346-811e-2746caa79007.jpg");
+    background-size: cover;
+    background-position: center;
+}
+.category-pill:nth-child(5) .cat-img {
+    background-image: url("../category images/8e7303fd-f41b-4972-8f8c-131982e89557.jpg");
     background-size: cover;
     background-position: center;
 }
