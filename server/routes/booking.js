@@ -9,7 +9,9 @@ import {
   updateBookingStatus,
   startConsultation,
   createBookingPayment,
-  verifyBookingPayment
+  verifyBookingPayment,
+  submitMobileBookingPayment,
+  verifyMobileBookingPayment
 } from '../controllers/booking.js'
 
 const r = Router()
@@ -20,6 +22,8 @@ r.get('/:id', authRequired, getBooking)
 r.post('/', authRequired, createBooking)
 r.post('/:id/payment', authRequired, createBookingPayment)
 r.post('/:id/verify-payment', authRequired, verifyBookingPayment)
+r.post('/:id/mobile-payment', authRequired, submitMobileBookingPayment)
+r.post('/:id/mobile-payment/verify', authRequired, verifyMobileBookingPayment)
 r.patch('/:id/status', authRequired, updateBookingStatus)
 
 // Dermatologist routes

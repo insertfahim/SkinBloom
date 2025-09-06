@@ -43,7 +43,7 @@ function PaymentSuccess() {
             } else {
                 // Verify product payment
                 response = await axios.get(
-                    `http://localhost:5000/api/payments/verify/${sessionId}`
+                    `http://localhost:5000/api/payment/verify/${sessionId}`
                 );
             }
 

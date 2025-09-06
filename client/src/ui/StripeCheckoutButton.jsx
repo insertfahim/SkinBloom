@@ -17,7 +17,8 @@ export default function StripeCheckoutButton() {
         setError(null);
         
         try {
-            const response = await API.post('/payments/consultation');
+            // Server route is mounted at /api/payment (singular)
+            const response = await API.post('/payment/consultation');
             const { url } = response.data;
 
             if (url) {
@@ -118,10 +119,14 @@ export default function StripeCheckoutButton() {
                     marginBottom: '12px'
                 }}
                 onMouseEnter={(e) => {
-                    if (!loading) e.target.style.background = '#2c5aa0';
+                    if (!loading) {
+                        e.target.style.background = '#2c5aa0';
+                    }
                 }}
                 onMouseLeave={(e) => {
-                    if (!loading) e.target.style.background = '#3182ce';
+                    if (!loading) {
+                        e.target.style.background = '#3182ce';
+                    }
                 }}
             >
                 {loading ? 'Processing...' : '💳 Book Consultation - $50'}

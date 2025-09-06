@@ -22,6 +22,7 @@ export default function ConsultationRequest() {
     const [availableSlots, setAvailableSlots] = useState([]);
     const [selectedSlot, setSelectedSlot] = useState("");
     const [consultationType, setConsultationType] = useState("photo_review");
+    const [payLoading, setPayLoading] = useState(false);
 
     const skinTypeOptions = [
         { value: "oily", label: "Oily" },
@@ -141,7 +142,9 @@ export default function ConsultationRequest() {
 
     const handlePhotoUpload = async (e) => {
         const files = Array.from(e.target.files);
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            return;
+        }
 
         setUploading(true);
         try {
@@ -308,6 +311,41 @@ export default function ConsultationRequest() {
                 return 30;
             default:
                 return 50;
+        }
+    };
+
+    const payWithCard = async () => {
+        try {
+            setPayLoading(true);
+            const { data } = await API.post('/payment/consultation');
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                alert('Failed to start card payment.');
+            }
+        } catch (e) {
+            console.error('Stripe pay error', e);
+            alert(e.response?.data?.error || 'Failed to start card payment');
+        } finally {
+            setPayLoading(false);
+        }
+    };
+
+    const payWithBkash = async () => {
+        try {
+            setPayLoading(true);
+            const amount = getConsultationFee();
+            const { data } = await API.post('/payment/bkash/create', { amount, intent: 'sale', callbackPath: '/payment/success' });
+            if (data?.url) {
+                window.location.href = data.url;
+            } else {
+                alert('Failed to start bKash payment');
+            }
+        } catch (e) {
+            console.error('bKash pay error', e);
+            alert(e.response?.data?.error || 'Failed to start bKash');
+        } finally {
+            setPayLoading(false);
         }
     };
 
@@ -975,56 +1013,15 @@ export default function ConsultationRequest() {
                             >
                                 Available Payment Options:
                             </h4>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "12px",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                        padding: "8px 12px",
-                                        background: "white",
-                                        border: "1px solid #dbeafe",
-                                        borderRadius: "6px",
-                                        fontSize: "14px",
-                                        color: "#1e40af",
-                                    }}
-                                >
-                                    <span style={{ fontSize: "16px" }}>💳</span>
-                                    <span>Credit/Debit Card</span>
-                                    <span
-                                        style={{
-                                            color: "#10b981",
-                                            fontWeight: "600",
-                                        }}
-                                    >
-                                        ✓
-                                    </span>
-                                </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                        padding: "8px 12px",
-                                        background: "white",
-                                        border: "1px solid #dbeafe",
-                                        borderRadius: "6px",
-                                        fontSize: "14px",
-                                        color: "#6b7280",
-                                    }}
-                                >
-                                    <span style={{ fontSize: "16px" }}>📱</span>
-                                    <span>Mobile Payment</span>
-                                    <span style={{ color: "#6b7280" }}>
-                                        Coming Soon
-                                    </span>
-                                </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                <button type="button" onClick={payWithCard} disabled={payLoading}
+                                    style={{ padding: '8px 12px', background: '#1e40af', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, cursor: payLoading ? 'not-allowed' : 'pointer' }}>
+                                    💳 Pay with Card (Stripe)
+                                </button>
+                                <button type="button" onClick={payWithBkash} disabled={payLoading}
+                                    style={{ padding: '8px 12px', background: '#c026d3', color: 'white', border: 'none', borderRadius: 6, fontSize: 14, cursor: payLoading ? 'not-allowed' : 'pointer' }}>
+                                    📱 Pay with bKash (Sandbox)
+                                </button>
                             </div>
                             <p
                                 style={{
@@ -1032,10 +1029,7 @@ export default function ConsultationRequest() {
                                     color: "#6b7280",
                                     marginTop: "8px",
                                 }}
-                            >
-                                Secure payment powered by Stripe. Your payment
-                                information is encrypted and secure.
-                            </p>
+                            >Secure card payments via Stripe, and mobile via bKash sandbox.</p>
                         </div>
                     </div>
                 )}

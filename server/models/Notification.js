@@ -8,6 +8,7 @@ const NotificationSchema = new mongoose.Schema({
     type: String, 
     enum: [
       'ticket_submitted',
+  'booking_created',
       'ticket_assigned', 
       'consultation_ready',
       'payment_required',

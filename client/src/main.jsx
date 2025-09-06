@@ -28,8 +28,10 @@ import Routine from "./ui/Routine.jsx";
 import Feedback from "./ui/Feedback.jsx";
 import Timeline from "./ui/Timeline.jsx";
 import Tickets from "./ui/Tickets.jsx";
+import TicketDetails from "./ui/TicketDetails.jsx";
 import ConsultationRequest from "./ui/ConsultationRequest.jsx";
 import UserBookings from "./ui/UserBookings.jsx";
+import Notifications from "./ui/Notifications.jsx";
 import Unauthorized from "./ui/Unauthorized.jsx";
 const root = createRoot(document.getElementById("root"));
 root.render(
@@ -225,6 +227,26 @@ root.render(
                                 allowedRoles={["user", "dermatologist"]}
                             >
                                 <Tickets />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="tickets/:id"
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={["user", "dermatologist"]}
+                            >
+                                <TicketDetails />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="notifications"
+                        element={
+                            <ProtectedRoute
+                                allowedRoles={["user", "dermatologist", "admin"]}
+                            >
+                                <Notifications />
                             </ProtectedRoute>
                         }
                     />

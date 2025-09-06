@@ -10,6 +10,7 @@ export default function UserBookings() {
     const [activeTab, setActiveTab] = useState("upcoming");
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [showPayment, setShowPayment] = useState(false);
+    const [mobilePayForm, setMobilePayForm] = useState({ provider: 'bkash', phone: '', transactionId: '' });
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [confirmedBooking, setConfirmedBooking] = useState(null);
 
@@ -109,7 +110,9 @@ export default function UserBookings() {
     };
 
     const handleCancelBooking = async (bookingId) => {
-        if (!confirm("Are you sure you want to cancel this booking?")) return;
+        if (!confirm("Are you sure you want to cancel this booking?")) {
+            return;
+        }
 
         try {
             await API.patch(`/bookings/${bookingId}/status`, {
@@ -132,6 +135,25 @@ export default function UserBookings() {
         } catch (error) {
             console.error("Error creating payment:", error);
             alert("Failed to create payment session");
+        }
+    };
+
+    const handleMobilePaymentSubmit = async (bookingId) => {
+        try {
+            const { provider, phone, transactionId } = mobilePayForm;
+            if (!provider || !phone || !transactionId) {
+                alert('Please fill provider, phone and transaction ID');
+                return;
+            }
+            await API.post(`/bookings/${bookingId}/mobile-payment`, {
+                provider, phone, transactionId
+            });
+            alert('Mobile payment submitted. We will verify and confirm shortly.');
+            setShowPayment(false);
+            setMobilePayForm({ provider: 'bkash', phone: '', transactionId: '' });
+        } catch (error) {
+            console.error('Mobile payment submit error:', error);
+            alert(error.response?.data?.error || 'Failed to submit mobile payment');
         }
     };
 
@@ -669,6 +691,27 @@ export default function UserBookings() {
                                         </button>
                                     )}
 
+                                {booking.status === "scheduled" && booking.paymentStatus === "pending" && (
+                                    <button
+                                        onClick={() => {
+                                            setSelectedBooking(booking);
+                                            setShowPayment(true);
+                                        }}
+                                        style={{
+                                            background: "#0369a1",
+                                            color: "white",
+                                            border: "none",
+                                            padding: "8px 16px",
+                                            borderRadius: "6px",
+                                            fontSize: "12px",
+                                            fontWeight: "600",
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        Submit Mobile Payment
+                                    </button>
+                                )}
+
                                 {booking.status === "in_progress" &&
                                     booking.sessionType === "video_call" && (
                                         <button
@@ -1153,6 +1196,41 @@ export default function UserBookings() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showPayment && selectedBooking && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'white', borderRadius: '12px', padding: '24px', width: '90%', maxWidth: '420px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <h3 style={{ margin: 0 }}>Submit Mobile Payment</h3>
+                            <button onClick={() => setShowPayment(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                        </div>
+                        <div style={{ display: 'grid', gap: 10 }}>
+                            <label style={{ display: 'grid', gap: 6, fontSize: 14 }}>
+                                Provider
+                                <select value={mobilePayForm.provider} onChange={e => setMobilePayForm(p => ({ ...p, provider: e.target.value }))} style={{ padding: 10, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                                    <option value="bkash">bKash</option>
+                                    <option value="nagad">Nagad</option>
+                                    <option value="rocket">Rocket</option>
+                                    <option value="upay">Upay</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </label>
+                            <label style={{ display: 'grid', gap: 6, fontSize: 14 }}>
+                                Phone Number
+                                <input value={mobilePayForm.phone} onChange={e => setMobilePayForm(p => ({ ...p, phone: e.target.value }))} placeholder="01XXXXXXXXX" style={{ padding: 10, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+                            </label>
+                            <label style={{ display: 'grid', gap: 6, fontSize: 14 }}>
+                                Transaction ID
+                                <input value={mobilePayForm.transactionId} onChange={e => setMobilePayForm(p => ({ ...p, transactionId: e.target.value }))} placeholder="e.g., TX12345" style={{ padding: 10, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+                            </label>
+                            <button onClick={() => handleMobilePaymentSubmit(selectedBooking._id)} style={{ padding: 12, background: '#0369a1', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600 }}>Submit</button>
+                        </div>
+                        <p style={{ fontSize: 12, color: '#6b7280', marginTop: 12 }}>
+                            After submitting, our team will verify the transaction and mark your booking as paid.
+                        </p>
                     </div>
                 </div>
             )}

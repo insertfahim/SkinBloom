@@ -18,7 +18,8 @@ export default function EnhancedStripeCheckout({
       let response;
       
       if (type === 'consultation') {
-        response = await API.post('/payments/consultation');
+        // Note: server mounts routes under /api/payment (singular)
+        response = await API.post('/payment/consultation');
       } else {
         // For product checkout, this would be handled by the Checkout component
         setError('Product checkout should use the Cart -> Checkout flow');
@@ -59,10 +60,14 @@ export default function EnhancedStripeCheckout({
           ...buttonStyle
         }}
         onMouseEnter={(e) => {
-          if (!loading) e.target.style.background = '#2c5aa0';
+          if (!loading) {
+            e.target.style.background = '#2c5aa0';
+          }
         }}
         onMouseLeave={(e) => {
-          if (!loading) e.target.style.background = '#3182ce';
+          if (!loading) {
+            e.target.style.background = '#3182ce';
+          }
         }}
       >
         {loading ? 'Processing...' : buttonText}

@@ -54,27 +54,33 @@ export default function Notifications() {
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'ticket_created': return '🎫'
+      case 'ticket_submitted': return '🎫'
       case 'ticket_assigned': return '👨‍⚕️'
-      case 'consultation_provided': return '💬'
+      case 'consultation_ready': return '💬'
+      case 'consultation_completed': return '🧾'
       case 'payment_required': return '💳'
-      case 'payment_completed': return '✅'
-      case 'ticket_resolved': return '🎉'
-      case 'follow_up': return '📅'
+      case 'payment_received': return '💰'
+      case 'payment_confirmed': return '✅'
+      case 'follow_up_reminder': return '📅'
+      case 'system_update': return '⚙️'
       default: return '🔔'
     }
   }
 
   const getNotificationColor = (type, priority) => {
-    if (priority === 'high') return '#ef4444'
+    if (priority === 'high') {
+      return '#ef4444'
+    }
     
     switch (type) {
-      case 'ticket_created': return '#3b82f6'
+      case 'ticket_submitted': return '#3b82f6'
       case 'ticket_assigned': return '#8b5cf6'
-      case 'consultation_provided': return '#10b981'
+      case 'consultation_ready': return '#10b981'
+      case 'consultation_completed': return '#0ea5e9'
       case 'payment_required': return '#f59e0b'
-      case 'payment_completed': return '#059669'
-      case 'ticket_resolved': return '#16a34a'
+      case 'payment_received': return '#06b6d4'
+      case 'payment_confirmed': return '#059669'
+      case 'follow_up_reminder': return '#16a34a'
       default: return '#6b7280'
     }
   }
@@ -91,20 +97,34 @@ export default function Notifications() {
   }
 
   const formatTimeAgo = (date) => {
-    const now = new Date()
-    const notificationDate = new Date(date)
-    const diffInMinutes = Math.floor((now - notificationDate) / (1000 * 60))
-    
-    if (diffInMinutes < 1) return 'Just now'
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-    
-    const diffInHours = Math.floor(diffInMinutes / 60)
-    if (diffInHours < 24) return `${diffInHours}h ago`
-    
-    const diffInDays = Math.floor(diffInHours / 24)
-    if (diffInDays < 7) return `${diffInDays}d ago`
-    
-    return notificationDate.toLocaleDateString()
+    try {
+      if (!date) {
+        return ''
+      }
+      const now = new Date()
+      const notificationDate = new Date(date)
+      if (isNaN(notificationDate.getTime())) {
+        return ''
+      }
+      const diffInMinutes = Math.floor((now - notificationDate) / (1000 * 60))
+      if (diffInMinutes < 1) {
+        return 'Just now'
+      }
+      if (diffInMinutes < 60) {
+        return `${diffInMinutes}m ago`
+      }
+      const diffInHours = Math.floor(diffInMinutes / 60)
+      if (diffInHours < 24) {
+        return `${diffInHours}h ago`
+      }
+      const diffInDays = Math.floor(diffInHours / 24)
+      if (diffInDays < 7) {
+        return `${diffInDays}d ago`
+      }
+      return notificationDate.toLocaleDateString()
+    } catch {
+      return ''
+    }
   }
 
   return (
@@ -240,11 +260,11 @@ export default function Notifications() {
                 }}
                 onMouseEnter={(e) => {
                   if (notification.actionUrl) {
-                    e.target.style.background = '#f1f5f9'
+                    e.currentTarget.style.background = '#f1f5f9'
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background = notification.read ? 'white' : '#f8fafc'
+                  e.currentTarget.style.background = notification.read ? 'white' : '#f8fafc'
                 }}
               >
                 {/* Unread indicator */}
@@ -320,8 +340,8 @@ export default function Notifications() {
                             padding: '4px',
                             borderRadius: '4px'
                           }}
-                          onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
-                          onMouseLeave={(e) => e.target.style.background = 'none'}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f3f4f6')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                         >
                           ✕
                         </button>

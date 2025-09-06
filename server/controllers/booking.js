@@ -4,6 +4,10 @@ import Ticket from "../models/Ticket.js";
 import Consultation from "../models/Consultation.js";
 import Notification from "../models/Notification.js";
 import Stripe from "stripe";
+import MobilePayment from "../models/MobilePayment.js";
+import PDFDocument from 'pdfkit'
+import fs from 'fs'
+import path from 'path'
 
 // Lazy load Stripe client
 let stripeClient;
@@ -33,6 +37,134 @@ async function createNotification(
     } catch (error) {
         console.error("Error creating notification:", error);
     }
+}
+
+// Helper: Generate dermatologist payslip PDF for a Stripe-paid booking
+async function generateDermatologistPayslipPDFForBooking(booking, session) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ margin: 50 });
+            const filename = `payslip-booking-${booking._id}-${Date.now()}.pdf`;
+            const filepath = path.join(process.cwd(), 'uploads', 'payslips', filename);
+
+            const dir = path.dirname(filepath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            // Header
+            doc.fontSize(20).font('Helvetica-Bold');
+            doc.text('SkinBloom Dermatologist Payslip', { align: 'center' });
+            doc.moveDown(2);
+
+            // Payslip Info
+            doc.fontSize(16).font('Helvetica-Bold');
+            doc.text('Payment Details', { underline: true });
+            doc.moveDown(0.5);
+
+            doc.fontSize(12).font('Helvetica');
+            doc.text(`Payslip ID: ${session.payment_intent}`);
+            if (session.created) {
+                doc.text(`Payment Date: ${new Date(session.created * 1000).toLocaleString()}`);
+            }
+            doc.text(`Amount Received: $${((session.amount_total || 0) / 100).toFixed(2)} ${String(session.currency || 'usd').toUpperCase()}`);
+            if (Array.isArray(session.payment_method_types) && session.payment_method_types[0]) {
+                doc.text(`Payment Method: ${session.payment_method_types[0].toUpperCase()}`);
+            }
+            doc.moveDown();
+
+            // Booking Info
+            doc.fontSize(16).font('Helvetica-Bold');
+            doc.text('Consultation Details', { underline: true });
+            doc.moveDown(0.5);
+
+            doc.fontSize(12).font('Helvetica');
+            doc.text(`Booking ID: ${booking._id}`);
+            doc.text(`Dermatologist: Dr. ${booking.dermatologist?.name || ''}`);
+            doc.text(`Patient: ${booking.patient?.name || ''}`);
+            doc.text(`Session Type: ${booking.sessionType?.replace('_', ' ')}`);
+            doc.text(`Scheduled Time: ${new Date(booking.scheduledDateTime).toLocaleString()}`);
+            doc.text(`Consultation Fee: $${Number(booking.consultationFee || 0).toFixed(2)}`);
+            doc.moveDown();
+
+            // Footer
+            doc.fontSize(10).font('Helvetica');
+            doc.text('This payslip is generated for dermatologist records.', {
+                align: 'center',
+                y: doc.page.height - 100
+            });
+
+            doc.end();
+            stream.on('finish', () => resolve(`/uploads/payslips/${filename}`));
+            stream.on('error', (err) => reject(err));
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
+// Helper: Generate dermatologist payslip PDF for a verified mobile payment
+async function generateDermatologistPayslipFromMobile(record, booking) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ margin: 50 });
+            const filename = `payslip-mobile-booking-${booking._id}-${Date.now()}.pdf`;
+            const filepath = path.join(process.cwd(), 'uploads', 'payslips', filename);
+
+            const dir = path.dirname(filepath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            // Header
+            doc.fontSize(20).font('Helvetica-Bold');
+            doc.text('SkinBloom Dermatologist Payslip (Mobile Payment)', { align: 'center' });
+            doc.moveDown(2);
+
+            // Payment Info
+            doc.fontSize(16).font('Helvetica-Bold');
+            doc.text('Payment Details', { underline: true });
+            doc.moveDown(0.5);
+            doc.fontSize(12).font('Helvetica');
+            doc.text(`Provider: ${record.provider}`);
+            doc.text(`Transaction ID: ${record.transactionId}`);
+            doc.text(`Phone: ${record.phone}`);
+            doc.text(`Amount: $${Number(record.amount || booking.consultationFee || 0).toFixed(2)}`);
+            doc.text(`Verified At: ${new Date(record.updatedAt || Date.now()).toLocaleString()}`);
+            doc.moveDown();
+
+            // Booking Info
+            doc.fontSize(16).font('Helvetica-Bold');
+            doc.text('Consultation Details', { underline: true });
+            doc.moveDown(0.5);
+            doc.fontSize(12).font('Helvetica');
+            doc.text(`Booking ID: ${booking._id}`);
+            doc.text(`Dermatologist: Dr. ${booking.dermatologist?.name || ''}`);
+            doc.text(`Patient: ${booking.patient?.name || ''}`);
+            doc.text(`Scheduled Time: ${new Date(booking.scheduledDateTime).toLocaleString()}`);
+            doc.text(`Consultation Fee: $${Number(booking.consultationFee || 0).toFixed(2)}`);
+            doc.moveDown();
+
+            // Footer
+            doc.fontSize(10).font('Helvetica');
+            doc.text('This payslip is generated for dermatologist records.', {
+                align: 'center',
+                y: doc.page.height - 100
+            });
+
+            doc.end();
+            stream.on('finish', () => resolve(`/uploads/payslips/${filename}`));
+            stream.on('error', (err) => reject(err));
+        } catch (err) {
+            reject(err);
+        }
+    });
 }
 
 // Get available time slots for a dermatologist
@@ -553,7 +685,7 @@ export async function verifyBookingPayment(req, res) {
             return res.status(400).json({ error: "Payment not completed" });
         }
 
-        const bookingId = session.metadata.bookingId;
+    const { bookingId } = session.metadata;
         const booking = await Booking.findById(bookingId)
             .populate("patient", "name email")
             .populate("dermatologist", "name");
@@ -568,6 +700,14 @@ export async function verifyBookingPayment(req, res) {
         booking.paymentDate = new Date();
         await booking.save();
 
+        // Generate dermatologist payslip PDF
+        let payslipUrl = null;
+        try {
+            payslipUrl = await generateDermatologistPayslipPDFForBooking(booking, session);
+        } catch (e) {
+            console.warn('Non-blocking: failed to generate dermatologist payslip for booking:', e?.message || e);
+        }
+
         // Notify dermatologist about payment
         await createNotification(
             booking.dermatologist._id,
@@ -578,6 +718,8 @@ export async function verifyBookingPayment(req, res) {
                 booking: booking._id,
                 sender: booking.patient._id,
                 payment: session.payment_intent,
+                actionUrl: payslipUrl || `/dermatologist/bookings/${booking._id}`,
+                actionText: payslipUrl ? 'Download Payslip' : 'View Booking'
             }
         );
 
@@ -588,6 +730,130 @@ export async function verifyBookingPayment(req, res) {
         });
     } catch (error) {
         console.error("Error verifying booking payment:", error);
+        res.status(500).json({ error: error.message });
+    }
+}
+
+// Submit mobile wallet payment for a booking (manual verification flow)
+export async function submitMobileBookingPayment(req, res) {
+    try {
+        const { provider, phone, transactionId, amount } = req.body;
+        const bookingId = req.params.id;
+
+        if (!provider || !phone || !transactionId) {
+            return res
+                .status(400)
+                .json({ error: "provider, phone and transactionId are required" });
+        }
+
+        const booking = await Booking.findById(bookingId).populate(
+            "dermatologist",
+            "name"
+        );
+        if (!booking) {
+            return res.status(404).json({ error: "Booking not found" });
+        }
+
+        if (booking.patient.toString() !== req.user.id) {
+            return res.status(403).json({ error: "Access denied" });
+        }
+
+        if (booking.paymentStatus === "paid") {
+            return res
+                .status(400)
+                .json({ error: "Payment already completed for this booking" });
+        }
+
+        // Create a mobile payment record
+        const record = await MobilePayment.create({
+            user: req.user.id,
+            booking: booking._id,
+            amount: amount ?? booking.consultationFee,
+            provider,
+            phone,
+            transactionId,
+            status: "submitted",
+        });
+
+        // Notify admin/dermatologist for manual verification
+        try {
+            await createNotification(
+                booking.dermatologist,
+                "payment_submitted",
+                "Mobile payment submitted",
+                `A ${provider} payment was submitted for booking ${booking._id}. Please verify the transaction.`,
+                { booking: booking._id, payment: record._id }
+            );
+        } catch {}
+
+        res.json({ success: true, payment: record });
+    } catch (error) {
+        console.error("Error submitting mobile payment:", error);
+        res.status(500).json({ error: error.message });
+    }
+}
+
+// Admin/Dermatologist verifies a mobile payment and marks booking paid
+export async function verifyMobileBookingPayment(req, res) {
+    try {
+        const { paymentId, approve = true } = req.body;
+        const record = await MobilePayment.findById(paymentId);
+        if (!record) {
+            return res.status(404).json({ error: "Payment record not found" });
+        }
+
+        // Only admin or the dermatologist can verify
+        if (!['admin', 'dermatologist'].includes(req.user.role)) {
+            return res.status(403).json({ error: "Not authorized to verify payments" });
+        }
+
+        const booking = await Booking.findById(record.booking).populate(
+            "patient",
+            "name email"
+        );
+        if (!booking) {
+            return res.status(404).json({ error: "Booking not found" });
+        }
+
+        if (approve) {
+            record.status = "verified";
+            booking.paymentStatus = "paid";
+            booking.paymentId = record.transactionId;
+            booking.paymentDate = new Date();
+            await booking.save();
+            // Generate payslip
+            try {
+                var payslipUrlMobile = await generateDermatologistPayslipFromMobile(record, booking);
+            } catch (e) {
+                console.warn('Non-blocking: failed to generate mobile payment payslip:', e?.message || e);
+            }
+        } else {
+            record.status = "rejected";
+        }
+        await record.save();
+
+        // Notify dermatologist if approved
+        if (approve) {
+            try {
+                await createNotification(
+                    booking.dermatologist,
+                    'payment_received',
+                    'Payment Received (Mobile)',
+                    `A ${record.provider} payment of $${Number(record.amount || booking.consultationFee || 0).toFixed(2)} was verified for consultation with ${booking.patient.name}`,
+                    {
+                        booking: booking._id,
+                        sender: booking.patient,
+                        payment: record._id?.toString(),
+                        actionUrl: payslipUrlMobile || `/dermatologist/bookings/${booking._id}`,
+                        actionText: payslipUrlMobile ? 'Download Payslip' : 'View Booking'
+                    }
+                );
+            } catch {}
+        }
+
+        res.json({ success: true, booking, payment: record });
+    } catch (error) {
+        console.error("Error verifying mobile payment:", error);
         res.status(500).json({ error: error.message });
     }
 }

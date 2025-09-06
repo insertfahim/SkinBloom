@@ -3,6 +3,11 @@ import dotenv from "dotenv";
 import Stripe from "stripe";
 import User from "../models/User.js";
 import Product from "../models/Product.js";
+import Notification from "../models/Notification.js";
+import PDFDocument from "pdfkit";
+import fs from "fs";
+import path from "path";
+import fetch from "node-fetch";
 
 dotenv.config(); // Load .env variables
 
@@ -17,6 +22,110 @@ if (
 } else {
     console.log("Stripe not configured - payments will be disabled");
 }
+
+// bKash configuration (Sandbox)
+const BKASH_BASE = (process.env.BKASH_SANDBOX === undefined || process.env.BKASH_SANDBOX === "true")
+    ? "https://checkout.sandbox.bka.sh/v1.2.0-beta"
+    : "https://checkout.pay.bka.sh/v1.2.0-beta";
+
+const isBkashConfigured = () => {
+    return Boolean(
+        process.env.BKASH_APP_KEY &&
+        process.env.BKASH_APP_SECRET &&
+        process.env.BKASH_USERNAME &&
+        process.env.BKASH_PASSWORD
+    );
+};
+
+const getBkashToken = async () => {
+    const appKey = process.env.BKASH_APP_KEY;
+    const appSecret = process.env.BKASH_APP_SECRET;
+    const username = process.env.BKASH_USERNAME;
+    const password = process.env.BKASH_PASSWORD;
+    if (!appKey || !appSecret || !username || !password) {
+        throw new Error("bKash credentials are not configured");
+    }
+    const res = await fetch(`${BKASH_BASE}/checkout/token/grant`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            username,
+            password,
+        },
+        body: JSON.stringify({ app_key: appKey, app_secret: appSecret }),
+    });
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`bKash token error: ${res.status} ${text}`);
+    }
+    const data = await res.json();
+    return { id_token: data.id_token, appKey };
+};
+
+export const createBkashPayment = async (req, res) => {
+    try {
+        if (!isBkashConfigured()) {
+            return res.status(400).json({ error: "bKash is not configured on server" });
+        }
+        const { amount, intent = "sale", invoice, callbackPath = "/payment/success" } = req.body || {};
+        if (!amount || Number(amount) <= 0) {
+            return res.status(400).json({ error: "Invalid amount" });
+        }
+        const { id_token, appKey } = await getBkashToken();
+        const callbackURL = `${process.env.FRONTEND_URL || "http://localhost:5173"}${callbackPath}`;
+
+        const payload = {
+            amount: String(amount),
+            currency: "BDT",
+            intent,
+            merchantInvoiceNumber: invoice || `SB-${Date.now()}`,
+            payerReference: req.user?.id || "guest",
+            callbackURL,
+        };
+
+        const r = await fetch(`${BKASH_BASE}/checkout/payment/create`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                authorization: id_token,
+                "x-app-key": appKey,
+            },
+            body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.bkashURL) {
+            return res.status(400).json({ error: data?.message || "Failed to create bKash payment", data });
+        }
+        // Return redirect URL and paymentID to client
+        return res.json({ url: data.bkashURL, paymentID: data.paymentID });
+    } catch (err) {
+        console.error("bKash create error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+export const executeBkashPayment = async (req, res) => {
+    try {
+        const { paymentID } = req.params;
+        const { id_token, appKey } = await getBkashToken();
+        const r = await fetch(`${BKASH_BASE}/checkout/payment/execute/${paymentID}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                authorization: id_token,
+                "x-app-key": appKey,
+            },
+        });
+        const data = await r.json();
+        if (!r.ok) {
+            return res.status(400).json({ error: data?.message || "Failed to execute bKash payment", data });
+        }
+        return res.json({ success: true, data });
+    } catch (err) {
+        console.error("bKash execute error:", err);
+        res.status(500).json({ error: err.message });
+    }
+};
 
 // Create consultation checkout session
 export const createConsultationCheckout = async (req, res) => {
@@ -227,8 +336,43 @@ export const verifyPayment = async (req, res) => {
                 createdAt: new Date(),
             };
 
-            // In a real app, you'd save this to an Orders collection
-            // For now, we'll just return the verification
+            // Optional: build a server-side receipt for product purchases
+            let receiptUrl = null;
+            try {
+                if (orderData.type === "product_purchase") {
+                    const lineItems = await stripe.checkout.sessions.listLineItems(sessionId, { limit: 100 });
+                    const rel = await generateOrderReceiptPDF(orderData, lineItems?.data || [], session);
+                    receiptUrl = rel; // e.g., /uploads/receipts/receipt-<sessionId>.pdf
+                }
+            } catch (e) {
+                console.warn("Non-blocking: failed to generate product receipt:", e?.message || e);
+            }
+
+            // Fire-and-forget notification to user (if we know them)
+            try {
+                if (orderData.userId) {
+                    const title = "Payment Successful";
+                    const message = orderData.type === "consultation"
+                        ? "Your consultation payment was received. We'll be in touch to confirm scheduling."
+                        : "Your order payment has been received. You can download the receipt.";
+                    const actionUrl = orderData.type === "consultation"
+                        ? "/consultation-request"
+                        : (receiptUrl || "/products");
+                    const actionText = orderData.type === "consultation" ? "View" : (receiptUrl ? "Download Receipt" : "View");
+                    await Notification.create({
+                        recipient: orderData.userId,
+                        type: "payment_confirmed",
+                        title,
+                        message,
+                        payment: session.payment_intent,
+                        actionRequired: false,
+                        actionUrl,
+                        actionText
+                    });
+                }
+            } catch (e) {
+                console.warn("Non-blocking: failed to create payment notification:", e?.message || e);
+            }
 
             res.status(200).json({
                 success: true,
@@ -253,6 +397,77 @@ export const verifyPayment = async (req, res) => {
     }
 };
 
+// Generate order receipt PDF for product purchases
+const generateOrderReceiptPDF = async (order, lineItems, session) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ margin: 50 });
+            const filename = `order-receipt-${order.sessionId}.pdf`;
+            const filepath = path.join(process.cwd(), "uploads", "receipts", filename);
+
+            const dir = path.dirname(filepath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            // Header
+            doc.fontSize(20).font("Helvetica-Bold");
+            doc.text("SkinBloom Order Receipt", { align: "center" });
+            doc.moveDown(2);
+
+            // Order info
+            doc.fontSize(16).font("Helvetica-Bold");
+            doc.text("Order Details", { underline: true });
+            doc.moveDown(0.5);
+
+            doc.fontSize(12).font("Helvetica");
+            doc.text(`Receipt Number: ${session.payment_intent}`);
+            doc.text(`Order Date: ${new Date().toLocaleDateString()}`);
+            doc.text(`Customer Email: ${order.customerEmail || "-"}`);
+            doc.moveDown();
+
+            // Items table
+            doc.fontSize(16).font("Helvetica-Bold");
+            doc.text("Items", { underline: true });
+            doc.moveDown(0.5);
+            doc.fontSize(12).font("Helvetica");
+            let itemIndex = 1;
+            lineItems.forEach((item) => {
+                const name = item.description || item.price?.product || "Item";
+                const qty = item.quantity || 1;
+                const amount = (item.amount_total || 0) / 100;
+                doc.text(`${itemIndex}. ${name}`);
+                doc.text(`   Qty: ${qty}   Line Total: $${amount.toFixed(2)}`);
+                doc.moveDown(0.25);
+                itemIndex += 1;
+            });
+            doc.moveDown(0.5);
+
+            // Totals
+            const total = order.amount || (session.amount_total || 0) / 100;
+            doc.fontSize(14).font("Helvetica-Bold");
+            doc.text(`Total Paid: $${total.toFixed(2)}`);
+            doc.moveDown(1);
+
+            // Footer
+            doc.fontSize(10).font("Helvetica");
+            doc.text("Thank you for shopping with SkinBloom.", {
+                align: "center",
+                y: doc.page.height - 100,
+            });
+
+            doc.end();
+            stream.on("finish", () => resolve(`/uploads/receipts/${filename}`));
+            stream.on("error", (err) => reject(err));
+        } catch (err) {
+            reject(err);
+        }
+    });
+};
+
 // Get payment methods and options
 export const getPaymentOptions = async (req, res) => {
     try {
@@ -260,6 +475,10 @@ export const getPaymentOptions = async (req, res) => {
         const numAmount = parseFloat(amount) || 0;
 
         const options = {
+            providers: {
+                stripeAvailable: Boolean(stripe),
+                bkashAvailable: isBkashConfigured(),
+            },
             full_payment: {
                 available: true,
                 amount: numAmount,

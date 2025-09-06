@@ -427,7 +427,14 @@ export async function provideConsultation(req, res) {
     await ticket.populate('user', 'name email')
     await ticket.populate('dermatologist', 'name qualifications')
 
-    // Generate consultation PDF
+    // Ensure recommended product details are available for PDF
+    try {
+      await ticket.populate('recommendedProducts.product', 'name brand price')
+    } catch (e) {
+      console.warn('Populate recommended products failed (non-blocking):', e.message)
+    }
+
+    // Generate consultation PDF (includes product names when populated)
     const pdfUrl = await generateConsultationPDF(ticket, consultation)
     consultation.pdfUrl = pdfUrl
     ticket.consultationPdfUrl = pdfUrl
@@ -618,6 +625,14 @@ export async function verifyPayment(req, res) {
     ticket.paymentReceiptUrl = receiptUrl
     await ticket.save()
 
+    // Also generate a dermatologist payslip for this ticket payment
+    let dermPayslipUrl = null
+    try {
+      dermPayslipUrl = await generateDermatologistPayslipPDFFromTicket(ticket, session)
+    } catch (e) {
+      console.warn('Non-blocking: failed to generate dermatologist payslip for ticket:', e?.message || e)
+    }
+
     // Notify both user and dermatologist
     await createNotification(
       ticket.user._id,
@@ -642,8 +657,8 @@ export async function verifyPayment(req, res) {
         ticket: ticket._id,
         sender: ticket.user._id,
         payment: session.payment_intent,
-        actionUrl: `/dermatologist/tickets/${ticket._id}`,
-        actionText: 'View Consultation'
+  actionUrl: dermPayslipUrl || `/dermatologist/tickets/${ticket._id}`,
+  actionText: dermPayslipUrl ? 'Download Payslip' : 'View Consultation'
       }
     )
 
@@ -721,11 +736,11 @@ async function generateConsultationPDF(ticket, consultation) {
       doc.moveDown(0.5)
       
       doc.fontSize(12).font('Helvetica')
-      if (ticket.skinType) doc.text(`Skin Type: ${ticket.skinType}`)
-      if (ticket.symptoms?.length) doc.text(`Symptoms: ${ticket.symptoms.join(', ')}`)
-      if (ticket.duration) doc.text(`Duration: ${ticket.duration}`)
-      if (ticket.previousTreatments) doc.text(`Previous Treatments: ${ticket.previousTreatments}`)
-      if (ticket.allergies) doc.text(`Known Allergies: ${ticket.allergies}`)
+  if (ticket.skinType) { doc.text(`Skin Type: ${ticket.skinType}`) }
+  if (ticket.symptoms?.length) { doc.text(`Symptoms: ${ticket.symptoms.join(', ')}`) }
+  if (ticket.duration) { doc.text(`Duration: ${ticket.duration}`) }
+  if (ticket.previousTreatments) { doc.text(`Previous Treatments: ${ticket.previousTreatments}`) }
+  if (ticket.allergies) { doc.text(`Known Allergies: ${ticket.allergies}`) }
       doc.moveDown()
     }
 
@@ -757,8 +772,8 @@ async function generateConsultationPDF(ticket, consultation) {
         doc.fontSize(12).font('Helvetica-Bold')
         doc.text(`${index + 1}. ${item.product?.name || 'Product'}`)
         doc.fontSize(11).font('Helvetica')
-        if (item.instructions) doc.text(`   Instructions: ${item.instructions}`)
-        if (item.priority) doc.text(`   Priority: ${item.priority}`)
+  if (item.instructions) { doc.text(`   Instructions: ${item.instructions}`) }
+  if (item.priority) { doc.text(`   Priority: ${item.priority}`) }
         doc.moveDown(0.3)
       })
       doc.moveDown()
@@ -941,8 +956,11 @@ export async function getTicketById(req, res) {
     const ticket = await Ticket.findById(req.params.id)
       .populate('user', 'name email')
       .populate('dermatologist', 'name')
+      .populate('recommendedProducts.product', 'name brand price image')
 
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' })
+    if (!ticket) {
+      return res.status(404).json({ error: 'Ticket not found' })
+    }
 
     // Check if user owns this ticket or is a dermatologist
     if (ticket.user._id.toString() !== req.user.id && req.user.role !== 'dermatologist') {
@@ -1067,9 +1085,10 @@ export async function markAsResolved(req, res) {
 // PDF Generation endpoint functions
 export async function downloadConsultationPDF(req, res) {
   try {
-    const ticket = await Ticket.findById(req.params.id)
+    let ticket = await Ticket.findById(req.params.id)
       .populate('user', 'name email')
       .populate('dermatologist', 'name')
+      .populate('recommendedProducts.product', 'name brand price')
 
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' })
@@ -1079,62 +1098,32 @@ export async function downloadConsultationPDF(req, res) {
     }
 
     // Check access
-    if (ticket.user._id.toString() !== req.user.id && req.user.role !== 'dermatologist') {
+    const isOwner = ticket.user._id.toString() === req.user.id
+    const isDerm = req.user.role === 'dermatologist'
+    if (!isOwner && !isDerm) {
       return res.status(403).json({ error: 'Access denied' })
     }
 
-    const PDFDocument = require('pdfkit')
-    const doc = new PDFDocument()
+    // Always (re)generate the PDF to ensure latest names/details are included
+    let relPath
+    try {
+      relPath = await generateConsultationPDF(ticket, ticket.consultation)
+      ticket.consultationPdfUrl = relPath
+      await ticket.save()
+    } catch (e) {
+      console.error('Error generating consultation PDF on download:', e)
+      return res.status(500).json({ error: 'Failed to generate PDF' })
+    }
 
+    const absolutePath = path.join(process.cwd(), relPath.replace(/^\//, ''))
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename=consultation-${ticket._id}.pdf`)
-
-    doc.pipe(res)
-
-    // PDF Header
-    doc.fontSize(20).text('Medical Consultation Report', { align: 'center' })
-    doc.moveDown()
-
-    // Patient Information
-    doc.fontSize(14).text('Patient Information:', { underline: true })
-    doc.fontSize(12)
-    doc.text(`Name: ${ticket.user.name}`)
-    doc.text(`Email: ${ticket.user.email}`)
-    doc.text(`Skin Type: ${ticket.skinType || 'Not specified'}`)
-    doc.text(`Date: ${new Date(ticket.createdAt).toLocaleDateString()}`)
-    doc.moveDown()
-
-    // Concern
-    doc.fontSize(14).text('Patient Concern:', { underline: true })
-    doc.fontSize(12).text(ticket.concern)
-    doc.moveDown()
-
-    if (ticket.symptoms) {
-      doc.fontSize(14).text('Symptoms:', { underline: true })
-      doc.fontSize(12).text(ticket.symptoms)
-      doc.moveDown()
+    try {
+      fs.createReadStream(absolutePath).pipe(res)
+    } catch (e) {
+      console.error('Error streaming consultation PDF:', e)
+      return res.status(500).json({ error: 'Failed to stream PDF' })
     }
-
-    // Consultation Details
-    doc.fontSize(14).text('Professional Consultation:', { underline: true })
-    doc.fontSize(12)
-    doc.text(`Dermatologist: Dr. ${ticket.dermatologist?.name || 'Unknown'}`)
-    doc.text(`Diagnosis: ${ticket.consultation.diagnosis}`)
-    doc.moveDown()
-
-    if (ticket.consultation.treatmentPlan) {
-      doc.text(`Treatment Plan: ${ticket.consultation.treatmentPlan}`)
-      doc.moveDown()
-    }
-
-    if (ticket.consultation.recommendedProducts?.length > 0) {
-      doc.text('Recommended Products:')
-      ticket.consultation.recommendedProducts.forEach(product => {
-        doc.text(`- ${product.name}`)
-      })
-    }
-
-    doc.end()
 
   } catch (error) {
     console.error('Error generating consultation PDF:', error)
@@ -1150,7 +1139,7 @@ export async function downloadPaymentReceiptPDF(req, res) {
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' })
     }
-    if (ticket.paymentStatus !== 'completed') {
+    if (ticket.paymentStatus !== 'paid') {
       return res.status(404).json({ error: 'Payment not completed' })
     }
 
@@ -1196,4 +1185,63 @@ export async function downloadPaymentReceiptPDF(req, res) {
     console.error('Error generating payment receipt PDF:', error)
     res.status(500).json({ error: error.message })
   }
+}
+
+// Generate dermatologist payslip PDF for a ticket payment
+async function generateDermatologistPayslipPDFFromTicket(ticket, session) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50 })
+      const filename = `payslip-ticket-${ticket._id}-${Date.now()}.pdf`
+      const filepath = path.join(process.cwd(), 'uploads', 'payslips', filename)
+
+      const dir = path.dirname(filepath)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+
+      const stream = fs.createWriteStream(filepath)
+      doc.pipe(stream)
+
+      // Header
+      doc.fontSize(20).font('Helvetica-Bold')
+      doc.text('SkinBloom Dermatologist Payslip', { align: 'center' })
+      doc.moveDown(2)
+
+      // Details
+      doc.fontSize(16).font('Helvetica-Bold')
+      doc.text('Payment Details', { underline: true })
+      doc.moveDown(0.5)
+      doc.fontSize(12).font('Helvetica')
+      doc.text(`Payslip ID: ${session.payment_intent}`)
+      if (session.created) { doc.text(`Payment Date: ${new Date(session.created * 1000).toLocaleString()}`) }
+      doc.text(`Amount Received: $${((session.amount_total || 0)/100).toFixed(2)} ${String(session.currency||'usd').toUpperCase()}`)
+      if (Array.isArray(session.payment_method_types) && session.payment_method_types[0]) {
+        doc.text(`Payment Method: ${session.payment_method_types[0].toUpperCase()}`)
+      }
+      doc.moveDown()
+
+      // Ticket/Consultation info
+      doc.fontSize(16).font('Helvetica-Bold')
+      doc.text('Consultation Details', { underline: true })
+      doc.moveDown(0.5)
+      doc.fontSize(12).font('Helvetica')
+      doc.text(`Ticket ID: ${ticket._id}`)
+      doc.text(`Dermatologist: Dr. ${ticket.dermatologist?.name || ''}`)
+      doc.text(`Patient: ${ticket.user?.name || ''}`)
+      doc.text(`Consultation Fee: $${Number(ticket.consultationFee || 0).toFixed(2)}`)
+      if (ticket.answeredAt) { doc.text(`Consultation Provided: ${new Date(ticket.answeredAt).toLocaleString()}`) }
+      doc.moveDown()
+
+      // Footer
+      doc.fontSize(10).font('Helvetica')
+      doc.text('This payslip is generated for dermatologist records.', { align: 'center', y: doc.page.height - 100 })
+
+      doc.end()
+      stream.on('finish', () => resolve(`/uploads/payslips/${filename}`))
+      stream.on('error', (err) => reject(err))
+    } catch (err) {
+      reject(err)
+    }
+  })
 }
