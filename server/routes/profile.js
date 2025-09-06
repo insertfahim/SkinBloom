@@ -17,6 +17,7 @@ import { authRequired, dermatologistRequired } from "../middleware/auth.js";
 import User from "../models/User.js";
 import Profile from "../models/Profile.js";
 import { upsertProfile, getMyProfile } from "../controllers/profile.js";
+import Activity from "../models/Activity.js";
 
 const r = Router();
 
@@ -27,12 +28,7 @@ r.get("/", authRequired, async (req, res) => {
     res.json(user);
 });
 
-// Alias for /profile/me
-r.get("/me", authRequired, async (req, res) => {
-    const user = await User.findById(req.user.id).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
-});
+// Note: Do not alias /me to return the user doc here; /me is reserved for full profile details via getMyProfile
 
 // Dermatologist view user profile for consultation
 r.get("/user/:userId", dermatologistRequired, async (req, res) => {
@@ -79,6 +75,16 @@ r.get("/user/:userId", dermatologistRequired, async (req, res) => {
                 : null,
         };
         console.log("Sending response:", response);
+        // Log profile view by dermatologist
+        try {
+            await Activity.create({
+                type: 'profile_view',
+                dermatologist: req.user.id,
+                user: userId,
+            })
+        } catch (e) {
+            console.warn('Activity log (profile_view) failed:', e.message)
+        }
         res.json(response);
     } catch (error) {
         console.error("Error fetching user profile for dermatologist:", error);

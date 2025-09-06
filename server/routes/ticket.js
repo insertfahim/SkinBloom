@@ -23,6 +23,12 @@ import {
 
 const r = Router()
 
+// Dermatologist routes (register specific routes BEFORE generic '/:id' to avoid collisions)
+r.get('/dermatologist/tickets', dermatologistRequired, getDermatologistTickets)
+r.post('/:id/assign', dermatologistRequired, assignTicket)
+r.post('/:id/consultation', dermatologistRequired, provideConsultation)
+r.patch('/:id/resolve', dermatologistRequired, markAsResolved)
+
 // User routes
 r.get('/my-tickets', authRequired, getUserTickets)
 r.get('/:id', authRequired, getTicketById)
@@ -32,12 +38,6 @@ r.post('/:id/verify-payment', authRequired, verifyPayment)
 r.post('/:id/message', authRequired, addMessage)
 r.get('/:id/consultation-pdf', authRequired, downloadConsultationPDF)
 r.get('/:id/payment-receipt-pdf', authRequired, downloadPaymentReceiptPDF)
-
-// Dermatologist routes
-r.get('/dermatologist/tickets', dermatologistRequired, getDermatologistTickets)
-r.post('/:id/assign', dermatologistRequired, assignTicket)
-r.post('/:id/consultation', dermatologistRequired, provideConsultation)
-r.patch('/:id/resolve', dermatologistRequired, markAsResolved)
 
 // Legacy routes for backward compatibility
 r.get('/', authRequired, listTickets)

@@ -487,9 +487,19 @@ p {
 }
 
 .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
+    opacity: 1 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    background: #e5e7eb !important; /* light gray */
+    color: #6b7280 !important;      /* readable muted text */
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+}
+.btn:disabled:hover {
+    background: #e5e7eb !important;
+    color: #6b7280 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 .btn.blue {
@@ -555,9 +565,19 @@ button:focus-visible {
 }
 
 button:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
+    opacity: 1 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    background: #e5e7eb !important;
+    color: #6b7280 !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+}
+button:disabled:hover {
+    background: #e5e7eb !important;
+    color: #6b7280 !important;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 /* Variants (can be used in className together with .btn OR alone on plain buttons) */

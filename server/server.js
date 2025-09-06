@@ -20,6 +20,8 @@ import wishlistRoutes from './routes/wishlist.js'
 import cartRoutes from './routes/cart.js'
 import notificationRoutes from './routes/notification.js'
 import bookingRoutes from './routes/booking.js'
+import activityRoutes from './routes/activity.js'
+import dashboardRoutes from './routes/dashboard.js'
 
 
 
@@ -82,3 +84,5 @@ app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/bookings', bookingRoutes)
+app.use('/api/activity', activityRoutes)
+app.use('/api/dashboard', dashboardRoutes)

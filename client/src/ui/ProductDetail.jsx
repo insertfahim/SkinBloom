@@ -3,6 +3,33 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import API from "../auth";
 import { useAuth } from "../context/AuthContext";
 
+// Lightweight star rating input used in the inline feedback form
+function StarInput({ value = 0, onChange = () => {} }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                    key={star}
+                    type="button"
+                    onClick={() => onChange(star)}
+                    aria-label={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                    style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                        lineHeight: 1,
+                        fontSize: 20,
+                        color: star <= Math.floor(value) ? "#f59e0b" : "#e5e7eb",
+                    }}
+                >
+                    ⭐
+                </button>
+            ))}
+        </div>
+    );
+}
+
 export default function ProductDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -33,7 +60,9 @@ export default function ProductDetail() {
 
     useEffect(() => {
         // Load existing feedback for this product (current user)
-        if (!id || !user) return;
+        if (!id || !user) {
+            return;
+        }
         (async () => {
             try {
                 setFbLoading(true);
@@ -553,7 +582,7 @@ export default function ProductDetail() {
                                     flexWrap: "wrap",
                                 }}
                             >
-                                {product.skinType.map((type) => (
+                                {(product.skinType || []).map((type) => (
                                     <span
                                         key={type}
                                         style={{

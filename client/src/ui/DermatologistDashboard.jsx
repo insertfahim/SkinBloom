@@ -20,11 +20,15 @@ export default function DermatologistDashboard() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // overview, tickets, bookings
   const [activeSubTab, setActiveSubTab] = useState('pending'); // for tickets: pending, assigned, completed
+  const [activity, setActivity] = useState({ views: 0, replies: 0, consultations: 0 });
+  const [kpis, setKpis] = useState({ todayBookings: 0, inProgress: 0, completed: 0, earnings: { total: 0, today: 0, previous: 0 } });
 
   useEffect(() => {
     loadTickets();
     loadBookings();
     loadProducts();
+  loadActivityStats();
+  loadDashboardStats();
   }, []);
 
   const loadTickets = async () => {
@@ -58,13 +62,39 @@ export default function DermatologistDashboard() {
     }
   };
 
+  const loadActivityStats = async () => {
+    try {
+      const { data } = await API.get('/activity/stats');
+      setActivity({
+        views: data.views || 0,
+        replies: data.replies || 0,
+        consultations: data.consultations || 0,
+      });
+    } catch (error) {
+      console.error('Error loading activity stats:', error);
+    }
+  };
+
+  const loadDashboardStats = async () => {
+    try {
+      const { data } = await API.get('/dashboard/dermatologist/stats');
+      setKpis({
+        todayBookings: data.todayBookings || 0,
+        inProgress: data.inProgress || 0,
+        completed: data.completed || 0,
+        earnings: data.earnings || { total: 0, today: 0, previous: 0 },
+      });
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+    }
+  };
+
   const assignTicket = async (ticketId) => {
     try {
       await API.post(`/tickets/${ticketId}/assign`);
       await loadTickets();
       alert('Ticket assigned successfully!');
     } catch (error) {
-      console.error('Error assigning ticket:', error);
       alert('Failed to assign ticket');
     }
   };
@@ -75,9 +105,13 @@ export default function DermatologistDashboard() {
       return;
     }
 
-    setSubmitting(true);
     try {
-      await API.post(`/tickets/${selectedTicket._id}/consultation`, consultation);
+      setSubmitting(true);
+      await API.post(`/tickets/${selectedTicket._id}/consultation`, {
+        diagnosis: consultation.diagnosis,
+        treatmentPlan: consultation.treatmentPlan,
+        recommendedProducts: (consultation.recommendedProducts || []).map(p => p._id),
+      });
       setSelectedTicket(null);
       setConsultation({
         diagnosis: '',
@@ -87,7 +121,7 @@ export default function DermatologistDashboard() {
       await loadTickets();
       alert('Consultation provided successfully!');
     } catch (error) {
-      console.error('Error submitting consultation:', error);
+      console.error('Failed to submit consultation:', error);
       alert('Failed to submit consultation');
     } finally {
       setSubmitting(false);
@@ -100,8 +134,8 @@ export default function DermatologistDashboard() {
       await loadTickets();
       alert('Ticket marked as resolved!');
     } catch (error) {
-      console.error('Error resolving ticket:', error);
-      alert('Failed to resolve ticket');
+      console.error('Failed to mark as resolved:', error);
+      alert('Failed to mark as resolved');
     }
   };
 
@@ -138,16 +172,8 @@ export default function DermatologistDashboard() {
   };
 
   const getFilteredTickets = () => {
-    switch (activeTab) {
-      case 'pending':
-        return tickets.filter(t => t.status === 'pending');
-      case 'assigned':
-        return tickets.filter(t => ['assigned', 'in-consultation'].includes(t.status));
-      case 'completed':
-  return tickets.filter(t => ['consultation-provided', 'resolved', 'paid'].includes(t.status));
-      default:
-        return tickets;
-    }
+    // For now, show all tickets. If needed, wire activeSubTab to filter by status.
+    return tickets;
   };
 
   const getStatusColor = (status) => {
@@ -197,74 +223,56 @@ export default function DermatologistDashboard() {
         </p>
       </div>
 
-      {/* Stats Overview */}
+      {/* Stats Overview (Bookings + Earnings) */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '20px',
-        marginBottom: '32px'
+        marginBottom: '24px'
       }}>
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          border: '1px solid #f3f4f6',
-          textAlign: 'center'
-        }}>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>📅</div>
-          <h3 style={{ color: '#3b82f6', fontSize: '24px', margin: 0 }}>
-            {bookings.filter(b => {
-              const today = new Date();
-              const bookingDate = new Date(b.scheduledDateTime);
-              return today.toDateString() === bookingDate.toDateString();
-            }).length}
-          </h3>
+          <h3 style={{ color: '#3b82f6', fontSize: '28px', margin: 0 }}>{kpis.todayBookings}</h3>
           <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Today's Bookings</p>
         </div>
 
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          border: '1px solid #f3f4f6',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>�</div>
-          <h3 style={{ color: '#8b5cf6', fontSize: '24px', margin: 0 }}>
-            {bookings.filter(b => b.status === 'in_progress').length}
-          </h3>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🧭</div>
+          <h3 style={{ color: '#8b5cf6', fontSize: '28px', margin: 0 }}>{kpis.inProgress}</h3>
           <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>In Progress</p>
         </div>
 
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          border: '1px solid #f3f4f6',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
-          <h3 style={{ color: '#10b981', fontSize: '24px', margin: 0 }}>
-            {bookings.filter(b => b.status === 'completed').length}
-          </h3>
-          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Completed</p>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>💰</div>
+          <h3 style={{ color: '#f59e0b', fontSize: '28px', margin: 0 }}>${kpis.earnings.today}</h3>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Today's Earnings</p>
+          <p style={{ color: '#9ca3af', margin: '4px 0 0 0', fontSize: '12px' }}>Previous: ${kpis.earnings.previous} • Total: ${kpis.earnings.total}</p>
+        </div>
+      </div>
+
+      {/* Activity Overview */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '20px',
+        marginBottom: '32px'
+      }}>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>👁️</div>
+          <h3 style={{ color: '#3b82f6', fontSize: '28px', margin: 0 }}>{activity.views}</h3>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Profile Views</p>
         </div>
 
-        <div style={{
-          background: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          border: '1px solid #f3f4f6',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '32px', marginBottom: '8px' }}>�</div>
-          <h3 style={{ color: '#f59e0b', fontSize: '24px', margin: 0 }}>
-            ${bookings
-              .filter(b => b.status === 'completed' && b.paymentStatus === 'paid')
-              .reduce((sum, b) => sum + (b.consultationFee || 0), 0)
-            }
-          </h3>
-          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Earnings</p>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✉️</div>
+          <h3 style={{ color: '#8b5cf6', fontSize: '28px', margin: 0 }}>{activity.replies}</h3>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Replies</p>
+        </div>
+
+        <div style={{ background: 'white', padding: '24px', borderRadius: '12px', border: '1px solid #f3f4f6', textAlign: 'center' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+          <h3 style={{ color: '#10b981', fontSize: '28px', margin: 0 }}>{activity.consultations}</h3>
+          <p style={{ color: '#6b7280', margin: '4px 0 0 0' }}>Consultations Provided</p>
         </div>
       </div>
 
@@ -314,8 +322,7 @@ export default function DermatologistDashboard() {
             marginBottom: '20px',
             color: '#1f2937'
           }}>
-            {activeTab === 'pending' ? 'Pending Cases' : 
-             activeTab === 'assigned' ? 'My Cases' : 'Completed Cases'}
+            Tickets
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

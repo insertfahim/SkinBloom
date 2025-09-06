@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 import PDFDocument from 'pdfkit'
 import fs from 'fs'
 import path from 'path'
+import Activity from '../models/Activity.js'
 
 // Lazy load Stripe client
 let stripeClient
@@ -352,6 +353,31 @@ export async function provideConsultation(req, res) {
       consultationFee
     } = req.body
 
+    // Backward/compat: some clients send 'treatmentPlan' instead of 'recommendations'
+    const treatmentPlanText = req.body.treatmentPlan
+    const normalizedRecommendations = recommendations || treatmentPlanText
+
+    // Normalize recommended products: accept either array of Product objects/ids
+    // or array of { product, instructions, priority }
+    const normalizedRecommendedProducts = Array.isArray(recommendedProducts)
+      ? recommendedProducts.map((item) => {
+          // If already in expected shape
+          if (item && (item.product || item.product === null)) {
+            return {
+              product: item.product?._id || item.product || undefined,
+              instructions: item.instructions || '',
+              priority: item.priority || 'recommended'
+            }
+          }
+          // If a raw product object or id is passed
+          return {
+            product: item?._id || item?.id || item,
+            instructions: item?.instructions || '',
+            priority: item?.priority || 'recommended'
+          }
+        })
+      : []
+
     const ticket = await Ticket.findById(req.params.id)
     if (!ticket) {
       return res.status(404).json({ error: 'Ticket not found' })
@@ -363,9 +389,9 @@ export async function provideConsultation(req, res) {
     }
 
     // Update ticket with consultation
-    ticket.diagnosis = diagnosis
-    ticket.recommendations = recommendations
-    ticket.recommendedProducts = recommendedProducts || []
+  ticket.diagnosis = diagnosis
+  ticket.recommendations = normalizedRecommendations || ''
+  ticket.recommendedProducts = normalizedRecommendedProducts
     ticket.followUpRequired = followUpRequired || false
     ticket.followUpDate = followUpDate
     ticket.consultationFee = consultationFee || 50
@@ -385,15 +411,15 @@ export async function provideConsultation(req, res) {
       user: ticket.user,
       dermatologist: req.user.id,
       diagnosis,
-      recommendations,
-      treatmentPlan: recommendedProducts?.map((item, index) => ({
+      recommendations: normalizedRecommendations || 'See treatment plan',
+      treatmentPlan: normalizedRecommendedProducts?.map((item, index) => ({
         step: index + 1,
-        instruction: item.instructions,
-        products: [item.product]
+        instruction: item.instructions || '',
+        products: item.product ? [item.product] : []
       })) || [],
       followUpRequired,
       followUpDate,
-      consultationNotes: `Diagnosis: ${diagnosis}\n\nRecommendations: ${recommendations}`,
+      consultationNotes: `Diagnosis: ${diagnosis}\n\nRecommendations: ${normalizedRecommendations || ''}\n\nTreatment Plan: ${treatmentPlanText || ''}`,
       status: 'completed',
       completedAt: new Date()
     })
@@ -407,6 +433,18 @@ export async function provideConsultation(req, res) {
     ticket.consultationPdfUrl = pdfUrl
     await consultation.save()
     await ticket.save()
+
+    // Log activity for consultation provided
+    try {
+      await Activity.create({
+        type: 'consultation_provided',
+        dermatologist: req.user.id,
+        user: ticket.user,
+        ticket: ticket._id
+      })
+    } catch (e) {
+      console.warn('Activity log (consultation_provided) failed:', e.message)
+    }
 
     // Notify user
     await createNotification(
@@ -849,6 +887,21 @@ export async function addMessage(req, res) {
 
     await ticket.save()
     await ticket.populate('messages.sender', 'name role')
+
+    // Log reply activity for dermatologists
+    try {
+      if (req.user.role === 'dermatologist') {
+        await Activity.create({
+          type: 'reply',
+          dermatologist: req.user.id,
+          user: ticket.user,
+          ticket: ticket._id,
+          meta: { length: message?.length || 0 }
+        })
+      }
+    } catch (e) {
+      console.warn('Activity log (reply) failed:', e.message)
+    }
 
     res.json({
       success: true,
